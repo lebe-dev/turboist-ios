@@ -68,6 +68,10 @@ final class AppConfigStore {
         config?.settings
     }
 
+    var autoRemovePaused: Bool {
+        config?.autoRemove.paused ?? false
+    }
+
     var meta: TasksMeta? {
         nil // meta comes from task responses, not config
     }

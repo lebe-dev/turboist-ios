@@ -2606,3 +2606,71 @@ struct ConnectionStatusStoreTests {
         #expect(store.isVisible == false)
     }
 }
+
+// MARK: - ExpiresInHelper Tests
+
+@Suite("ExpiresInHelper")
+struct ExpiresInHelperTests {
+
+    @Test("returns nil when expiresAt is nil")
+    func testNilExpiresAt() {
+        #expect(ExpiresInHelper.expiresInText(for: nil) == nil)
+    }
+
+    @Test("returns nil for invalid date string")
+    func testInvalidDate() {
+        #expect(ExpiresInHelper.expiresInText(for: "not-a-date") == nil)
+    }
+
+    @Test("returns 'Expiring now' when expired")
+    func testExpired() {
+        let past = "2020-01-01T00:00:00Z"
+        #expect(ExpiresInHelper.expiresInText(for: past) == "Expiring now")
+    }
+
+    @Test("returns hours and minutes format")
+    func testHoursAndMinutes() {
+        let now = Date(timeIntervalSince1970: 1000000)
+        let future = Date(timeIntervalSince1970: 1000000 + 2 * 3600 + 30 * 60)
+        let iso = ISO8601DateFormatter()
+        iso.formatOptions = [.withInternetDateTime]
+        let text = ExpiresInHelper.expiresInText(for: iso.string(from: future), now: now)
+        #expect(text == "Auto-removes in 2h 30m")
+    }
+
+    @Test("returns minutes-only format when less than 1 hour")
+    func testMinutesOnly() {
+        let now = Date(timeIntervalSince1970: 1000000)
+        let future = Date(timeIntervalSince1970: 1000000 + 45 * 60)
+        let iso = ISO8601DateFormatter()
+        iso.formatOptions = [.withInternetDateTime]
+        let text = ExpiresInHelper.expiresInText(for: iso.string(from: future), now: now)
+        #expect(text == "Auto-removes in 45m")
+    }
+
+    @Test("hasExpiration returns true for valid expiresAt")
+    func testHasExpiration() {
+        #expect(ExpiresInHelper.hasExpiration("2030-01-01T00:00:00Z") == true)
+        #expect(ExpiresInHelper.hasExpiration(nil) == false)
+        #expect(ExpiresInHelper.hasExpiration("bad") == false)
+    }
+
+    @Test("parses ISO 8601 with fractional seconds")
+    func testFractionalSeconds() {
+        let text = ExpiresInHelper.expiresInText(for: "2020-01-01T00:00:00.000Z")
+        #expect(text == "Expiring now")
+    }
+}
+
+// MARK: - AutoRemovePaused Tests
+
+@Suite("AppConfigStore autoRemovePaused")
+struct AutoRemovePausedTests {
+
+    @Test("autoRemovePaused returns false when config is nil")
+    @MainActor
+    func testNilConfig() {
+        let store = AppConfigStore()
+        #expect(store.autoRemovePaused == false)
+    }
+}

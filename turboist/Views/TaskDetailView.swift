@@ -178,6 +178,13 @@ struct TaskDetailView: View {
                 }
             }
 
+            if let expiresText = ExpiresInHelper.expiresInText(for: task.expiresAt) {
+                Section {
+                    Label(expiresText, systemImage: "flame")
+                        .foregroundStyle(.orange)
+                }
+            }
+
             // Subtasks
             if !task.children.isEmpty {
                 Section("Subtasks (\(task.completedSubTaskCount)/\(task.subTaskCount))") {

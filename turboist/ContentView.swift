@@ -28,6 +28,8 @@ struct ContentView: View {
                     pendingActionCount: connectionStore.pendingActionCount
                 )
 
+                AutoRemovePausedBanner(isVisible: configStore.autoRemovePaused)
+
                 PinnedTasksView(
                     pinnedTasks: configStore.pinnedTasks,
                     onTapTask: { taskId in

@@ -61,6 +61,15 @@ struct TaskRowView: View {
                 }
 
                 HStack(spacing: 8) {
+                    if let expiresText = ExpiresInHelper.expiresInText(for: task.expiresAt) {
+                        HStack(spacing: 2) {
+                            Image(systemName: "flame")
+                            Text(expiresText)
+                        }
+                        .font(.caption)
+                        .foregroundStyle(.orange)
+                    }
+
                     if let due = task.due {
                         HStack(spacing: 2) {
                             Image(systemName: due.recurring ? "arrow.triangle.2.circlepath" : "calendar")
