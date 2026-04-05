@@ -150,6 +150,7 @@ struct AutoLabelMapping: Codable {
 
 struct QuickCaptureConfig: Codable {
     let title: String
+    let parentTaskId: String
 }
 
 struct ProjectTask: Codable, Identifiable {

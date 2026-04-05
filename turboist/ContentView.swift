@@ -7,6 +7,7 @@ struct ContentView: View {
     @State private var planningViewModel: PlanningViewModel
     @State private var configStore = AppConfigStore()
     @State private var showPlanning = false
+    @State private var showQuickCapture = false
     @State private var navigationPath = NavigationPath()
 
     init() {
@@ -62,11 +63,30 @@ struct ContentView: View {
         }
         .toolbar {
             ToolbarItem(placement: .bottomBar) {
-                Button {
-                    openPlanning()
-                } label: {
-                    Label("Planning", systemImage: "list.clipboard")
+                HStack {
+                    Button {
+                        openPlanning()
+                    } label: {
+                        Label("Planning", systemImage: "list.clipboard")
+                    }
+                    Spacer()
+                    if configStore.config?.quickCapture != nil {
+                        Button {
+                            showQuickCapture = true
+                        } label: {
+                            Label("Quick Capture", systemImage: "lightbulb")
+                        }
+                    }
                 }
+            }
+        }
+        .sheet(isPresented: $showQuickCapture) {
+            if let qc = configStore.config?.quickCapture {
+                QuickCaptureView(
+                    parentTaskId: qc.parentTaskId,
+                    repository: taskListViewModel.repository
+                )
+                .presentationDetents([.medium])
             }
         }
         .sheet(isPresented: $showPlanning) {

@@ -2336,3 +2336,118 @@ struct SearchTests {
         #expect(allFilters["selected_labels"] as! [String] == ["work"])
     }
 }
+
+// MARK: - Quick Capture Tests
+
+@Suite("Quick Capture")
+struct QuickCaptureTests {
+
+    @Test func quickCaptureConfigDecodesParentTaskId() throws {
+        let json = """
+        {"title": "Ideas", "parent_task_id": "abc123"}
+        """
+        let decoder = JSONDecoder()
+        decoder.keyDecodingStrategy = .convertFromSnakeCase
+        let config = try decoder.decode(QuickCaptureConfig.self, from: json.data(using: .utf8)!)
+        #expect(config.title == "Ideas")
+        #expect(config.parentTaskId == "abc123")
+    }
+
+    @Test func quickCaptureConfigInAppConfig() throws {
+        let json = """
+        {
+            "settings": {
+                "poll_interval": 30, "sync_interval": 5, "timezone": "UTC",
+                "weekly_label": "weekly", "backlog_label": "backlog",
+                "project_label": "project", "projects_label": "projects",
+                "weekly_limit": 10, "backlog_limit": 20, "completed_days": 7,
+                "max_pinned": 5, "last_synced_at": null,
+                "day_parts": [], "max_day_part_note_length": 200,
+                "inbox_project_id": "inbox1", "inbox_limit": 50,
+                "inbox_overflow_task_content": "Too many tasks"
+            },
+            "contexts": [], "projects": [], "labels": [],
+            "label_configs": [], "auto_labels": [],
+            "quick_capture": {"title": "Quick Ideas", "parent_task_id": "parent1"},
+            "project_tasks": [], "label_project_map": [],
+            "auto_remove": {"rules": [], "paused": false},
+            "state": {
+                "pinned_tasks": [], "active_context_id": "",
+                "active_view": "all", "collapsed_ids": [],
+                "sidebar_collapsed": false, "planning_open": false,
+                "day_part_notes": {}, "locale": "en"
+            }
+        }
+        """
+        let decoder = JSONDecoder()
+        decoder.keyDecodingStrategy = .convertFromSnakeCase
+        let config = try decoder.decode(AppConfig.self, from: json.data(using: .utf8)!)
+        #expect(config.quickCapture != nil)
+        #expect(config.quickCapture?.parentTaskId == "parent1")
+        #expect(config.quickCapture?.title == "Quick Ideas")
+    }
+
+    @Test func quickCaptureCreatesTaskWithParentId() async {
+        let repo = MockTaskRepository()
+        repo.createTaskResult = CreateTaskResponse(ok: true, id: "new-task-id")
+
+        let vm = CreateTaskViewModel(repository: repo)
+        vm.content = "My quick idea"
+        vm.parentId = "parent-task-123"
+        vm.priority = 3
+
+        let success = await vm.createTask()
+        #expect(success)
+        #expect(repo.lastCreateRequest?.content == "My quick idea")
+        #expect(repo.lastCreateRequest?.parentId == "parent-task-123")
+        #expect(repo.lastCreateRequest?.priority == 3)
+    }
+
+    @Test func quickCaptureCreatesTaskWithDueDate() async {
+        let repo = MockTaskRepository()
+        repo.createTaskResult = CreateTaskResponse(ok: true, id: "new-task-id")
+
+        let vm = CreateTaskViewModel(repository: repo)
+        vm.content = "Urgent idea"
+        vm.parentId = "parent-task-123"
+        vm.dueDate = DueDateHelper.todayString()
+
+        let success = await vm.createTask()
+        #expect(success)
+        #expect(repo.lastCreateRequest?.dueDate == DueDateHelper.todayString())
+        #expect(repo.lastCreateRequest?.parentId == "parent-task-123")
+    }
+
+    @Test func appConfigStoreExposesQuickCapture() {
+        let store = AppConfigStore()
+        #expect(store.config?.quickCapture == nil)
+
+        let qc = QuickCaptureConfig(title: "Ideas", parentTaskId: "p1")
+        let config = AppConfig(
+            settings: AppSettings(
+                pollInterval: 30, syncInterval: 5, timezone: "UTC",
+                weeklyLabel: "weekly", backlogLabel: "backlog",
+                projectLabel: "project", projectsLabel: "projects",
+                weeklyLimit: 10, backlogLimit: 20, completedDays: 7,
+                maxPinned: 5, lastSyncedAt: nil,
+                dayParts: [], maxDayPartNoteLength: 200,
+                inboxProjectId: "inbox1", inboxLimit: 50,
+                inboxOverflowTaskContent: "overflow"
+            ),
+            contexts: [], projects: [], labels: [],
+            labelConfigs: [], autoLabels: [],
+            quickCapture: qc,
+            projectTasks: [], labelProjectMap: [],
+            autoRemove: AutoRemoveStatus(rules: [], paused: false),
+            state: UserState(
+                pinnedTasks: [], activeContextId: "",
+                activeView: "all", collapsedIds: [],
+                sidebarCollapsed: false, planningOpen: false,
+                dayPartNotes: [:], locale: "en"
+            )
+        )
+        store.setConfig(config)
+        #expect(store.config?.quickCapture?.parentTaskId == "p1")
+        #expect(store.config?.quickCapture?.title == "Ideas")
+    }
+}
