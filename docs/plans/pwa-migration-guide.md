@@ -925,8 +925,8 @@ enum ActionType: String, Codable {
 
 ### 7.20. Inbox overflow
 
-- [ ] Если `inbox_count > inbox_limit` → показать предупреждение
-- [ ] Текст предупреждения: `inboxOverflowTaskContent` из Settings
+- [x] Если `inbox_count > inbox_limit` → показать предупреждение
+- [x] Текст предупреждения: `inboxOverflowTaskContent` из Settings
 
 ---
 
