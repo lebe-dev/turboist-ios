@@ -919,9 +919,9 @@ enum ActionType: String, Codable {
 
 ### 7.19. Прогресс-бары
 
-- [ ] **Weekly**: `weekly_count / weekly_limit` (из meta)
-- [ ] **Backlog**: `backlog_count / backlog_limit` (из meta)
-- [ ] Цвет: зелёный (<80%), оранжевый (80-99%), красный (>=100%)
+- [x] **Weekly**: `weekly_count / weekly_limit` (из meta)
+- [x] **Backlog**: `backlog_count / backlog_limit` (из meta)
+- [x] Цвет: зелёный (<80%), оранжевый (80-99%), красный (>=100%)
 
 ### 7.20. Inbox overflow
 
