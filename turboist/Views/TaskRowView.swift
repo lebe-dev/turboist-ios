@@ -5,15 +5,17 @@ struct TaskRowView: View {
     let depth: Int
     let hasChildren: Bool
     let isCollapsed: Bool
+    let availableLabels: [TaskLabel]
     let onComplete: () -> Void
     let onToggleCollapse: (() -> Void)?
 
     init(task: TaskItem, depth: Int = 0, hasChildren: Bool = false, isCollapsed: Bool = false,
-         onComplete: @escaping () -> Void, onToggleCollapse: (() -> Void)? = nil) {
+         availableLabels: [TaskLabel] = [], onComplete: @escaping () -> Void, onToggleCollapse: (() -> Void)? = nil) {
         self.task = task
         self.depth = depth
         self.hasChildren = hasChildren
         self.isCollapsed = isCollapsed
+        self.availableLabels = availableLabels
         self.onComplete = onComplete
         self.onToggleCollapse = onToggleCollapse
     }
@@ -53,12 +55,7 @@ struct TaskRowView: View {
                 if !task.labels.isEmpty {
                     HStack(spacing: 4) {
                         ForEach(task.labels, id: \.self) { label in
-                            Text(label)
-                                .font(.caption2)
-                                .padding(.horizontal, 6)
-                                .padding(.vertical, 2)
-                                .background(Color.secondary.opacity(0.15))
-                                .clipShape(Capsule())
+                            LabelBadge(name: label, availableLabels: availableLabels)
                         }
                     }
                 }
@@ -122,4 +119,27 @@ struct TaskRowView: View {
         Priority(rawPriority: task.priority).color
     }
 
+}
+
+struct LabelBadge: View {
+    let name: String
+    let availableLabels: [TaskLabel]
+
+    private var labelColor: Color {
+        guard let label = availableLabels.first(where: { $0.name == name }),
+              let color = Color(hex: label.color) else {
+            return .secondary
+        }
+        return color
+    }
+
+    var body: some View {
+        Text(name)
+            .font(.caption2)
+            .padding(.horizontal, 6)
+            .padding(.vertical, 2)
+            .foregroundStyle(labelColor)
+            .background(labelColor.opacity(0.15))
+            .clipShape(Capsule())
+    }
 }

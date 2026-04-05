@@ -30,6 +30,8 @@ final class MockTaskRepository: TaskRepositoryProtocol {
     var lastMoveParentId: String?
     var patchStateCalled = false
     var lastPatchStateRequest: PatchStateRequest?
+    var batchUpdateLabelsCalled = false
+    var lastBatchUpdateLabels: [String: [String]]?
 
     func fetchTasks(view: TaskView, context: String?) async throws -> TasksResponse {
         if let error = fetchTasksError { throw error }
@@ -77,6 +79,12 @@ final class MockTaskRepository: TaskRepositoryProtocol {
 
     func fetchCompletedSubtasks(id: String) async throws -> [TaskItem] {
         completedSubtasksResult
+    }
+
+    func batchUpdateLabels(_ updates: [String: [String]]) async throws -> Int {
+        batchUpdateLabelsCalled = true
+        lastBatchUpdateLabels = updates
+        return updates.count
     }
 
     func patchState(_ request: PatchStateRequest) async throws {
@@ -854,4 +862,120 @@ struct DueDateViewModelTests {
         #expect(mock.updateTaskCalled)
         #expect(mock.lastUpdateRequest?.dueString == "every day")
     }
+}
+
+// MARK: - Label Tests
+
+@Suite("Label Tests")
+struct LabelTests {
+
+    @Test("AppConfigStore returns label color")
+    func labelColor() {
+        let store = AppConfigStore()
+        let config = AppConfig(
+            settings: makeSettings(),
+            contexts: [],
+            projects: [],
+            labels: [TaskLabel(id: "1", name: "work", color: "ff0000", order: 0)],
+            labelConfigs: [LabelConfig(name: "work", inheritToSubtasks: true)],
+            autoLabels: [],
+            quickCapture: nil,
+            projectTasks: [],
+            labelProjectMap: [],
+            autoRemove: AutoRemoveStatus(rules: [], paused: false),
+            state: makeUserState()
+        )
+        store.setConfig(config)
+        #expect(store.labels.count == 1)
+        #expect(store.labelColor("work") != nil)
+        #expect(store.labelColor("missing") == nil)
+        #expect(store.shouldInheritToSubtasks("work") == true)
+        #expect(store.shouldInheritToSubtasks("other") == false)
+    }
+
+    @Test("Color hex parsing")
+    func hexColor() {
+        let color = Color(hex: "#ff0000")
+        #expect(color != nil)
+        let colorNoHash = Color(hex: "00ff00")
+        #expect(colorNoHash != nil)
+        let invalid = Color(hex: "xyz")
+        #expect(invalid == nil)
+    }
+
+    @Test("Batch update labels via ViewModel")
+    @MainActor
+    func batchUpdateLabels() async {
+        let mock = MockTaskRepository()
+        let vm = TaskListViewModel(repository: mock)
+        let task1 = makeTask(id: "t1", labels: ["old"])
+        let task2 = makeTask(id: "t2", labels: ["old"])
+        mock.fetchTasksResult = TasksResponse(
+            tasks: [task1, task2],
+            meta: TasksMeta(context: "", weeklyLimit: 0, weeklyCount: 0, backlogLimit: 0, backlogCount: 0)
+        )
+        await vm.loadTasks()
+
+        await vm.batchUpdateLabels(["t1": ["new1"], "t2": ["new2"]])
+
+        #expect(mock.batchUpdateLabelsCalled)
+        #expect(mock.lastBatchUpdateLabels?["t1"] == ["new1"])
+        #expect(mock.lastBatchUpdateLabels?["t2"] == ["new2"])
+        // Optimistic update should have changed local state
+        #expect(vm.tasks.first(where: { $0.id == "t1" })?.labels == ["new1"])
+        #expect(vm.tasks.first(where: { $0.id == "t2" })?.labels == ["new2"])
+    }
+
+    @Test("TaskDetailViewModel updates labels")
+    @MainActor
+    func updateTaskLabels() async {
+        let mock = MockTaskRepository()
+        let vm = TaskDetailViewModel(repository: mock)
+        let task = makeTask(id: "task-1", labels: ["old-label"])
+        vm.setTask(task)
+
+        await vm.updateTask(labels: ["new-label", "another"])
+
+        #expect(mock.updateTaskCalled)
+        #expect(mock.lastUpdateRequest?.labels == ["new-label", "another"])
+        #expect(vm.task?.labels == ["new-label", "another"])
+    }
+}
+
+// MARK: - Test Config Helpers
+
+func makeSettings() -> AppSettings {
+    AppSettings(
+        pollInterval: 30,
+        syncInterval: 5,
+        timezone: "UTC",
+        weeklyLabel: "weekly",
+        backlogLabel: "backlog",
+        projectLabel: "project",
+        projectsLabel: "projects",
+        weeklyLimit: 20,
+        backlogLimit: 50,
+        completedDays: 7,
+        maxPinned: 5,
+        lastSyncedAt: nil,
+        dayParts: [],
+        maxDayPartNoteLength: 500,
+        inboxProjectId: "inbox",
+        inboxLimit: 50,
+        inboxOverflowTaskContent: "Too many tasks in inbox"
+    )
+}
+
+func makeUserState() -> UserState {
+    UserState(
+        pinnedTasks: [],
+        activeContextId: "",
+        activeView: "all",
+        collapsedIds: [],
+        sidebarCollapsed: false,
+        planningOpen: false,
+        dayPartNotes: [:],
+        locale: "en",
+        allFilters: nil
+    )
 }

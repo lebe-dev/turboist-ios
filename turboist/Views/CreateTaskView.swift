@@ -5,12 +5,15 @@ struct CreateTaskView: View {
     @State private var viewModel: CreateTaskViewModel
     @State private var showDatePicker = false
     @State private var showRecurrencePicker = false
+    @State private var showLabelPicker = false
+    let availableLabels: [TaskLabel]
     let onCreated: () -> Void
 
-    init(repository: TaskRepositoryProtocol, parentId: String? = nil, onCreated: @escaping () -> Void) {
+    init(repository: TaskRepositoryProtocol, parentId: String? = nil, availableLabels: [TaskLabel] = [], onCreated: @escaping () -> Void) {
         let vm = CreateTaskViewModel(repository: repository)
         vm.parentId = parentId
         _viewModel = State(initialValue: vm)
+        self.availableLabels = availableLabels
         self.onCreated = onCreated
     }
 
@@ -29,6 +32,23 @@ struct CreateTaskView: View {
                         Text("P2 - High").tag(3)
                         Text("P3 - Medium").tag(2)
                         Text("P4 - Low").tag(1)
+                    }
+                }
+
+                if !availableLabels.isEmpty {
+                    Section("Labels") {
+                        if !viewModel.labels.isEmpty {
+                            FlowLayout(spacing: 6) {
+                                ForEach(viewModel.labels, id: \.self) { label in
+                                    LabelBadge(name: label, availableLabels: availableLabels)
+                                }
+                            }
+                        }
+                        Button {
+                            showLabelPicker = true
+                        } label: {
+                            Label(viewModel.labels.isEmpty ? "Add Labels" : "Edit Labels", systemImage: "tag")
+                        }
                     }
                 }
 
@@ -97,6 +117,9 @@ struct CreateTaskView: View {
                     }
                     .disabled(!viewModel.isValid || viewModel.isSaving)
                 }
+            }
+            .sheet(isPresented: $showLabelPicker) {
+                LabelPickerView(availableLabels: availableLabels, selectedLabels: $viewModel.labels)
             }
             .sheet(isPresented: $showDatePicker) {
                 DatePickerSheet(currentDate: viewModel.dueDate) { dateString in

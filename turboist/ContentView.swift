@@ -4,6 +4,7 @@ struct ContentView: View {
     @State private var apiClient: APIClient
     @State private var taskListViewModel: TaskListViewModel
     @State private var taskDetailViewModel: TaskDetailViewModel
+    @State private var configStore = AppConfigStore()
 
     init() {
         let client = APIClient(baseURL: "http://localhost:8080")
@@ -15,29 +16,28 @@ struct ContentView: View {
 
     var body: some View {
         NavigationStack {
-            TaskListView(viewModel: taskListViewModel)
+            TaskListView(viewModel: taskListViewModel, configStore: configStore)
                 .navigationDestination(for: TaskItem.self) { task in
                     TaskDetailView(viewModel: {
                         let vm = taskDetailViewModel
                         vm.setTask(task)
                         return vm
-                    }())
+                    }(), availableLabels: configStore.labels)
                 }
                 .navigationDestination(for: String.self) { parentId in
-                    // Navigate to parent task by ID
                     TaskDetailView(viewModel: {
                         let vm = taskDetailViewModel
                         if let parentTask = taskListViewModel.findTask(by: parentId) {
                             vm.setTask(parentTask)
                         }
                         return vm
-                    }())
+                    }(), availableLabels: configStore.labels)
                 }
         }
         .task {
-            // Load config to get collapsed_ids
             do {
                 let config = try await apiClient.fetchConfig()
+                configStore.setConfig(config)
                 taskListViewModel.setCollapsedIds(config.state.collapsedIds)
             } catch {
                 // Non-critical, proceed without persisted state

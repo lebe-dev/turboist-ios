@@ -93,6 +93,10 @@ final class APIClient {
         try await post("/api/tasks/\(id)/move", body: request)
     }
 
+    func batchUpdateLabels(_ request: BatchUpdateLabelsRequest) async throws -> BatchUpdateLabelsResponse {
+        try await post("/api/tasks/batch-update-labels", body: request)
+    }
+
     func fetchCompletedSubtasks(id: String) async throws -> CompletedSubtasksResponse {
         try await get("/api/tasks/\(id)/completed-subtasks")
     }

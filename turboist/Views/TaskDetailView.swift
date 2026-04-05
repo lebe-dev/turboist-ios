@@ -12,6 +12,9 @@ struct TaskDetailView: View {
     @State private var showCreateSubtask = false
     @State private var showDatePicker = false
     @State private var showRecurrencePicker = false
+    @State private var showLabelPicker = false
+    @State private var editedLabels: [String] = []
+    var availableLabels: [TaskLabel] = []
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
@@ -45,7 +48,7 @@ struct TaskDetailView: View {
         }
         .sheet(isPresented: $showCreateSubtask) {
             if let task = viewModel.task {
-                CreateTaskView(repository: viewModel.repository, parentId: task.id) {
+                CreateTaskView(repository: viewModel.repository, parentId: task.id, availableLabels: availableLabels) {
                     // Reload to show new subtask
                 }
             }
@@ -56,6 +59,13 @@ struct TaskDetailView: View {
             } onClear: {
                 Task { await viewModel.updateTask(dueDate: "") }
             }
+        }
+        .sheet(isPresented: $showLabelPicker) {
+            LabelPickerView(availableLabels: availableLabels, selectedLabels: $editedLabels)
+                .onDisappear {
+                    guard let task = viewModel.task, editedLabels != task.labels else { return }
+                    Task { await viewModel.updateTask(labels: editedLabels) }
+                }
         }
         .sheet(isPresented: $showRecurrencePicker) {
             RecurrencePickerView(currentDue: viewModel.task?.due) { dueString in
@@ -144,18 +154,19 @@ struct TaskDetailView: View {
                 }
             }
 
-            if !task.labels.isEmpty {
-                Section("Labels") {
+            Section("Labels") {
+                if !task.labels.isEmpty {
                     FlowLayout(spacing: 6) {
                         ForEach(task.labels, id: \.self) { label in
-                            Text(label)
-                                .font(.caption)
-                                .padding(.horizontal, 8)
-                                .padding(.vertical, 4)
-                                .background(Color.secondary.opacity(0.15))
-                                .clipShape(Capsule())
+                            LabelBadge(name: label, availableLabels: availableLabels)
                         }
                     }
+                }
+                Button {
+                    editedLabels = task.labels
+                    showLabelPicker = true
+                } label: {
+                    Label(task.labels.isEmpty ? "Add Labels" : "Edit Labels", systemImage: "tag")
                 }
             }
 

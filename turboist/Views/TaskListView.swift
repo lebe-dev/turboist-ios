@@ -2,7 +2,9 @@ import SwiftUI
 
 struct TaskListView: View {
     @Bindable var viewModel: TaskListViewModel
+    var configStore: AppConfigStore?
     @State private var showCreateTask = false
+    @State private var showLabelsView = false
     @State private var taskToDelete: TaskItem?
     @State private var taskToMove: TaskItem?
     @State private var moveParentId = ""
@@ -46,16 +48,25 @@ struct TaskListView: View {
                 }
             }
             ToolbarItem(placement: .primaryAction) {
-                Button {
-                    subtaskParentId = nil
-                    showCreateTask = true
-                } label: {
-                    Image(systemName: "plus")
+                HStack(spacing: 12) {
+                    if let configStore, !configStore.labels.isEmpty {
+                        Button {
+                            showLabelsView = true
+                        } label: {
+                            Image(systemName: "tag")
+                        }
+                    }
+                    Button {
+                        subtaskParentId = nil
+                        showCreateTask = true
+                    } label: {
+                        Image(systemName: "plus")
+                    }
                 }
             }
         }
         .sheet(isPresented: $showCreateTask) {
-            CreateTaskView(repository: viewModel.repository, parentId: subtaskParentId) {
+            CreateTaskView(repository: viewModel.repository, parentId: subtaskParentId, availableLabels: configStore?.labels ?? []) {
                 Task { await viewModel.loadTasks(view: viewModel.currentView) }
             }
         }
@@ -86,6 +97,22 @@ struct TaskListView: View {
         } message: {
             Text("Enter the ID of the parent task.")
         }
+        .sheet(isPresented: $showLabelsView) {
+            if let configStore {
+                NavigationStack {
+                    LabelsListView(
+                        labels: configStore.labels,
+                        labelConfigs: configStore.labelConfigs,
+                        tasks: viewModel.tasks
+                    )
+                    .toolbar {
+                        ToolbarItem(placement: .confirmationAction) {
+                            Button("Done") { showLabelsView = false }
+                        }
+                    }
+                }
+            }
+        }
         .refreshable {
             await viewModel.loadTasks(view: viewModel.currentView)
         }
@@ -100,6 +127,7 @@ struct TaskListView: View {
                         depth: displayTask.depth,
                         hasChildren: displayTask.hasChildren,
                         isCollapsed: viewModel.collapsedIds.contains(displayTask.task.id),
+                        availableLabels: configStore?.labels ?? [],
                         onComplete: {
                             Task { await viewModel.completeTask(displayTask.task) }
                         },

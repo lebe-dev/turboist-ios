@@ -147,6 +147,29 @@ final class TaskListViewModel {
         }
     }
 
+    @MainActor
+    func batchUpdateLabels(_ updates: [String: [String]]) async {
+        // Optimistic update
+        for (taskId, newLabels) in updates {
+            updateTaskLabelsLocally(taskId, labels: newLabels, in: &tasks)
+        }
+        do {
+            _ = try await repository.batchUpdateLabels(updates)
+        } catch {
+            await loadTasks(view: currentView)
+        }
+    }
+
+    private func updateTaskLabelsLocally(_ taskId: String, labels: [String], in tasks: inout [TaskItem]) {
+        for i in tasks.indices {
+            if tasks[i].id == taskId {
+                tasks[i].labels = labels
+                return
+            }
+            updateTaskLabelsLocally(taskId, labels: labels, in: &tasks[i].children)
+        }
+    }
+
     func togglePriorityFilter(_ priority: Int) {
         if selectedPriorities.contains(priority) {
             selectedPriorities.remove(priority)
