@@ -3,6 +3,8 @@ import SwiftUI
 struct CreateTaskView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var viewModel: CreateTaskViewModel
+    @State private var showDatePicker = false
+    @State private var showRecurrencePicker = false
     let onCreated: () -> Void
 
     init(repository: TaskRepositoryProtocol, parentId: String? = nil, onCreated: @escaping () -> Void) {
@@ -31,10 +33,43 @@ struct CreateTaskView: View {
                 }
 
                 Section("Due Date") {
-                    TextField("YYYY-MM-DD (optional)", text: Binding(
-                        get: { viewModel.dueDate ?? "" },
-                        set: { viewModel.dueDate = $0.isEmpty ? nil : $0 }
-                    ))
+                    if let dueDate = viewModel.dueDate {
+                        HStack {
+                            Label(DueDateHelper.displayLabel(for: dueDate), systemImage: "calendar")
+                                .foregroundStyle(DueDateHelper.status(for: dueDate).color)
+                            Spacer()
+                            Button {
+                                viewModel.dueDate = nil
+                                viewModel.dueString = nil
+                            } label: {
+                                Image(systemName: "xmark.circle.fill")
+                                    .foregroundStyle(.secondary)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                        if viewModel.dueString != nil {
+                            Label("Recurring", systemImage: "arrow.triangle.2.circlepath")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+
+                    QuickDateButtons { dateString in
+                        viewModel.dueDate = dateString
+                        viewModel.dueString = nil
+                    }
+                    .listRowInsets(EdgeInsets(top: 8, leading: 0, bottom: 8, trailing: 0))
+
+                    Button {
+                        showDatePicker = true
+                    } label: {
+                        Label("Pick Date", systemImage: "calendar.badge.plus")
+                    }
+                    Button {
+                        showRecurrencePicker = true
+                    } label: {
+                        Label("Set Recurrence", systemImage: "arrow.triangle.2.circlepath")
+                    }
                 }
 
                 if let error = viewModel.error {
@@ -61,6 +96,30 @@ struct CreateTaskView: View {
                         }
                     }
                     .disabled(!viewModel.isValid || viewModel.isSaving)
+                }
+            }
+            .sheet(isPresented: $showDatePicker) {
+                DatePickerSheet(currentDate: viewModel.dueDate) { dateString in
+                    viewModel.dueDate = dateString
+                    viewModel.dueString = nil
+                } onClear: {
+                    viewModel.dueDate = nil
+                    viewModel.dueString = nil
+                }
+            }
+            .sheet(isPresented: $showRecurrencePicker) {
+                let due = viewModel.dueDate.map { Due(date: $0, recurring: viewModel.dueString != nil) }
+                RecurrencePickerView(currentDue: due) { dueString in
+                    if dueString.hasPrefix("__clear_recurrence__:") {
+                        let date = String(dueString.dropFirst("__clear_recurrence__:".count))
+                        viewModel.dueDate = date
+                        viewModel.dueString = nil
+                    } else {
+                        viewModel.dueString = dueString
+                        if viewModel.dueDate == nil {
+                            viewModel.dueDate = DueDateHelper.todayString()
+                        }
+                    }
                 }
             }
         }

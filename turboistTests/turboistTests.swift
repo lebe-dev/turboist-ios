@@ -1,4 +1,6 @@
 import Testing
+import Foundation
+import SwiftUI
 @testable import turboist
 
 // MARK: - Mock Repository
@@ -650,5 +652,206 @@ struct FindTaskTests {
 
         let found = await vm.findTask(by: "nonexistent")
         #expect(found == nil)
+    }
+}
+
+// MARK: - DueDate Helper tests
+
+struct DueDateHelperTests {
+    @Test func parseValidDate() {
+        let date = DueDateHelper.parse("2026-06-15")
+        #expect(date != nil)
+    }
+
+    @Test func parseInvalidDate() {
+        let date = DueDateHelper.parse("invalid")
+        #expect(date == nil)
+    }
+
+    @Test func formatRoundTrips() {
+        let dateString = "2026-06-15"
+        let parsed = DueDateHelper.parse(dateString)!
+        let formatted = DueDateHelper.format(parsed)
+        #expect(formatted == dateString)
+    }
+
+    @Test func statusOverdue() {
+        let yesterday = Calendar.current.date(byAdding: .day, value: -1, to: Date())!
+        let dateString = DueDateHelper.format(yesterday)
+        #expect(DueDateHelper.status(for: dateString) == .overdue)
+    }
+
+    @Test func statusToday() {
+        let dateString = DueDateHelper.todayString()
+        #expect(DueDateHelper.status(for: dateString) == .today)
+    }
+
+    @Test func statusTomorrow() {
+        let dateString = DueDateHelper.tomorrowString()
+        #expect(DueDateHelper.status(for: dateString) == .tomorrow)
+    }
+
+    @Test func statusFuture() {
+        let future = Calendar.current.date(byAdding: .day, value: 5, to: Date())!
+        let dateString = DueDateHelper.format(future)
+        #expect(DueDateHelper.status(for: dateString) == .future)
+    }
+
+    @Test func statusInvalidReturnsNone() {
+        #expect(DueDateHelper.status(for: "not-a-date") == .none)
+    }
+
+    @Test func displayLabelToday() {
+        let dateString = DueDateHelper.todayString()
+        #expect(DueDateHelper.displayLabel(for: dateString) == "Today")
+    }
+
+    @Test func displayLabelTomorrow() {
+        let dateString = DueDateHelper.tomorrowString()
+        #expect(DueDateHelper.displayLabel(for: dateString) == "Tomorrow")
+    }
+
+    @Test func displayLabelOverdue() {
+        let yesterday = Calendar.current.date(byAdding: .day, value: -1, to: Date())!
+        let dateString = DueDateHelper.format(yesterday)
+        #expect(DueDateHelper.displayLabel(for: dateString) == "Overdue")
+    }
+
+    @Test func displayLabelFutureShowsShortDate() {
+        let future = Calendar.current.date(byAdding: .day, value: 10, to: Date())!
+        let dateString = DueDateHelper.format(future)
+        let label = DueDateHelper.displayLabel(for: dateString)
+        // Should not be Today/Tomorrow/Overdue
+        #expect(label != "Today")
+        #expect(label != "Tomorrow")
+        #expect(label != "Overdue")
+        #expect(!label.isEmpty)
+    }
+
+    @Test func todayStringMatchesCurrentDate() {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+        #expect(DueDateHelper.todayString() == formatter.string(from: Date()))
+    }
+
+    @Test func tomorrowStringIsOneDayAfterToday() {
+        let today = DueDateHelper.parse(DueDateHelper.todayString())!
+        let tomorrow = DueDateHelper.parse(DueDateHelper.tomorrowString())!
+        let diff = Calendar.current.dateComponents([.day], from: today, to: tomorrow).day
+        #expect(diff == 1)
+    }
+
+    @Test func weekDaysReturnsCorrectCount() {
+        let days = DueDateHelper.weekDays()
+        #expect(days.count == 6)
+    }
+
+    @Test func weekDaysAreFutureDates() {
+        let todayDate = Calendar.current.startOfDay(for: Date())
+        for day in DueDateHelper.weekDays() {
+            let date = DueDateHelper.parse(day.date)!
+            #expect(date > todayDate)
+        }
+    }
+
+    @Test func postponeColorThresholds() {
+        #expect(DueDateHelper.postponeColor(count: 0) == .secondary)
+        #expect(DueDateHelper.postponeColor(count: 1) == .secondary)
+        #expect(DueDateHelper.postponeColor(count: 2) == .yellow)
+        #expect(DueDateHelper.postponeColor(count: 3) == .red)
+        #expect(DueDateHelper.postponeColor(count: 10) == .red)
+    }
+}
+
+// MARK: - Due Date ViewModel tests
+
+struct DueDateViewModelTests {
+    @Test func updateTaskDueDateCallsRepository() async {
+        let mock = MockTaskRepository()
+        let task = makeTask(id: "1", due: Due(date: "2026-01-01", recurring: false))
+        mock.fetchTasksResult = TasksResponse(
+            tasks: [task],
+            meta: TasksMeta(context: "", weeklyLimit: 0, weeklyCount: 0, backlogLimit: 0, backlogCount: 0)
+        )
+        let vm = await TaskListViewModel(repository: mock)
+        await vm.loadTasks()
+
+        await vm.updateTaskDueDate(task, dueDate: "2026-06-15")
+
+        #expect(mock.updateTaskCalled)
+        #expect(mock.lastUpdateRequest?.dueDate == "2026-06-15")
+        await #expect(vm.tasks[0].due?.date == "2026-06-15")
+    }
+
+    @Test func clearDueDateSendsEmptyString() async {
+        let mock = MockTaskRepository()
+        let task = makeTask(id: "1", due: Due(date: "2026-01-01", recurring: false))
+        mock.fetchTasksResult = TasksResponse(
+            tasks: [task],
+            meta: TasksMeta(context: "", weeklyLimit: 0, weeklyCount: 0, backlogLimit: 0, backlogCount: 0)
+        )
+        let vm = await TaskListViewModel(repository: mock)
+        await vm.loadTasks()
+
+        await vm.updateTaskDueDate(task, dueDate: "")
+
+        #expect(mock.updateTaskCalled)
+        await #expect(vm.tasks[0].due == nil)
+    }
+
+    @Test func updateTaskDueDateOnNestedChild() async {
+        let mock = MockTaskRepository()
+        let child = makeTask(id: "child-1", due: Due(date: "2026-01-01", recurring: false), parentId: "root-1")
+        let root = makeTask(id: "root-1", children: [child])
+        mock.fetchTasksResult = TasksResponse(
+            tasks: [root],
+            meta: TasksMeta(context: "", weeklyLimit: 0, weeklyCount: 0, backlogLimit: 0, backlogCount: 0)
+        )
+        let vm = await TaskListViewModel(repository: mock)
+        await vm.loadTasks()
+
+        await vm.updateTaskDueDate(child, dueDate: "2026-12-25")
+
+        #expect(mock.updateTaskCalled)
+        await #expect(vm.tasks[0].children[0].due?.date == "2026-12-25")
+    }
+
+    @Test func createTaskWithDueString() async {
+        let mock = MockTaskRepository()
+        let vm = await CreateTaskViewModel(repository: mock)
+        await MainActor.run {
+            vm.content = "Recurring task"
+            vm.dueDate = "2026-06-01"
+            vm.dueString = "every day"
+        }
+
+        let success = await vm.createTask()
+
+        #expect(success)
+        #expect(mock.lastCreateRequest?.dueDate == "2026-06-01")
+        #expect(mock.lastCreateRequest?.dueString == "every day")
+    }
+
+    @Test func resetClearsDueString() async {
+        let mock = MockTaskRepository()
+        let vm = await CreateTaskViewModel(repository: mock)
+        await MainActor.run {
+            vm.dueString = "every week"
+            vm.reset()
+        }
+
+        await #expect(vm.dueString == nil)
+    }
+
+    @Test func detailViewModelUpdateDueString() async {
+        let mock = MockTaskRepository()
+        let vm = await TaskDetailViewModel(repository: mock)
+        let task = makeTask(id: "task-1")
+        await MainActor.run { vm.setTask(task) }
+
+        await vm.updateTask(dueString: "every day")
+
+        #expect(mock.updateTaskCalled)
+        #expect(mock.lastUpdateRequest?.dueString == "every day")
     }
 }

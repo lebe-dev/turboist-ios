@@ -10,6 +10,8 @@ struct TaskDetailView: View {
     @State private var showDecompose = false
     @State private var showCompletedSubtasks = false
     @State private var showCreateSubtask = false
+    @State private var showDatePicker = false
+    @State private var showRecurrencePicker = false
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
@@ -45,6 +47,23 @@ struct TaskDetailView: View {
             if let task = viewModel.task {
                 CreateTaskView(repository: viewModel.repository, parentId: task.id) {
                     // Reload to show new subtask
+                }
+            }
+        }
+        .sheet(isPresented: $showDatePicker) {
+            DatePickerSheet(currentDate: viewModel.task?.due?.date) { dateString in
+                Task { await viewModel.updateTask(dueDate: dateString) }
+            } onClear: {
+                Task { await viewModel.updateTask(dueDate: "") }
+            }
+        }
+        .sheet(isPresented: $showRecurrencePicker) {
+            RecurrencePickerView(currentDue: viewModel.task?.due) { dueString in
+                if dueString.hasPrefix("__clear_recurrence__:") {
+                    let date = String(dueString.dropFirst("__clear_recurrence__:".count))
+                    Task { await viewModel.updateTask(dueDate: date) }
+                } else {
+                    Task { await viewModel.updateTask(dueString: dueString) }
                 }
             }
         }
@@ -92,16 +111,36 @@ struct TaskDetailView: View {
                 }
             }
 
-            if isEditing {
-                Section("Due Date") {
-                    TextField("YYYY-MM-DD", text: $editedDueDate)
-                }
-            } else if let due = task.due {
-                Section("Due Date") {
-                    Label(due.date, systemImage: due.recurring ? "arrow.triangle.2.circlepath" : "calendar")
-                    if due.recurring {
-                        Text("Recurring").font(.caption).foregroundStyle(.secondary)
+            Section("Due Date") {
+                if let due = task.due {
+                    HStack {
+                        Label(DueDateHelper.displayLabel(for: due.date),
+                              systemImage: due.recurring ? "arrow.triangle.2.circlepath" : "calendar")
+                            .foregroundStyle(DueDateHelper.status(for: due.date).color)
+                        Spacer()
+                        Text(due.date)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
                     }
+                    if due.recurring {
+                        Label("Recurring", systemImage: "repeat")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                } else {
+                    Text("No date set")
+                        .foregroundStyle(.secondary)
+                }
+
+                Button {
+                    showDatePicker = true
+                } label: {
+                    Label("Set Date", systemImage: "calendar.badge.plus")
+                }
+                Button {
+                    showRecurrencePicker = true
+                } label: {
+                    Label("Set Recurrence", systemImage: "arrow.triangle.2.circlepath")
                 }
             }
 
@@ -123,7 +162,7 @@ struct TaskDetailView: View {
             if task.postponeCount > 0 {
                 Section {
                     Label("Postponed \(task.postponeCount) time(s)", systemImage: "clock.arrow.circlepath")
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(DueDateHelper.postponeColor(count: task.postponeCount))
                 }
             }
 
@@ -211,7 +250,6 @@ struct TaskDetailView: View {
         editedContent = task.content
         editedDescription = task.description
         editedPriority = task.priority
-        editedDueDate = task.due?.date ?? ""
         isEditing = true
     }
 
@@ -222,8 +260,7 @@ struct TaskDetailView: View {
             await viewModel.updateTask(
                 content: editedContent != task.content ? editedContent : nil,
                 description: editedDescription != task.description ? editedDescription : nil,
-                priority: editedPriority != task.priority ? editedPriority : nil,
-                dueDate: editedDueDate != (task.due?.date ?? "") ? (editedDueDate.isEmpty ? nil : editedDueDate) : nil
+                priority: editedPriority != task.priority ? editedPriority : nil
             )
         }
     }

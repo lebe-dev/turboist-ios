@@ -65,9 +65,23 @@ struct TaskRowView: View {
 
                 HStack(spacing: 8) {
                     if let due = task.due {
-                        Label(due.date, systemImage: due.recurring ? "arrow.triangle.2.circlepath" : "calendar")
-                            .font(.caption)
-                            .foregroundStyle(dueDateColor(due.date))
+                        HStack(spacing: 2) {
+                            Image(systemName: due.recurring ? "arrow.triangle.2.circlepath" : "calendar")
+                            Text(DueDateHelper.displayLabel(for: due.date))
+                        }
+                        .font(.caption)
+                        .foregroundStyle(DueDateHelper.status(for: due.date).color)
+                    }
+
+                    if task.postponeCount > 0 {
+                        HStack(spacing: 2) {
+                            Image(systemName: "clock.arrow.circlepath")
+                            if task.postponeCount >= 2 {
+                                Text("\(task.postponeCount)")
+                            }
+                        }
+                        .font(.caption)
+                        .foregroundStyle(DueDateHelper.postponeColor(count: task.postponeCount))
                     }
 
                     if task.subTaskCount > 0 {
@@ -108,13 +122,4 @@ struct TaskRowView: View {
         Priority(rawPriority: task.priority).color
     }
 
-    private func dueDateColor(_ dateString: String) -> Color {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd"
-        guard let date = formatter.date(from: dateString) else { return .secondary }
-        let today = Calendar.current.startOfDay(for: Date())
-        if date < today { return .red }
-        if Calendar.current.isDateInToday(date) { return .green }
-        return .secondary
-    }
 }

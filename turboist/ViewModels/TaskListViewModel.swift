@@ -116,6 +116,17 @@ final class TaskListViewModel {
         }
     }
 
+    @MainActor
+    func updateTaskDueDate(_ task: TaskItem, dueDate: String) async {
+        updateTaskDueDateLocally(task.id, dueDate: dueDate, in: &tasks)
+        let request = UpdateTaskRequest(dueDate: dueDate.isEmpty ? nil : dueDate)
+        do {
+            try await repository.updateTask(id: task.id, request)
+        } catch {
+            await loadTasks(view: currentView)
+        }
+    }
+
     private func updateTaskPriorityLocally(_ taskId: String, priority: Int, in tasks: inout [TaskItem]) {
         for i in tasks.indices {
             if tasks[i].id == taskId {
@@ -123,6 +134,16 @@ final class TaskListViewModel {
                 return
             }
             updateTaskPriorityLocally(taskId, priority: priority, in: &tasks[i].children)
+        }
+    }
+
+    private func updateTaskDueDateLocally(_ taskId: String, dueDate: String, in tasks: inout [TaskItem]) {
+        for i in tasks.indices {
+            if tasks[i].id == taskId {
+                tasks[i].due = dueDate.isEmpty ? nil : Due(date: dueDate, recurring: tasks[i].due?.recurring ?? false)
+                return
+            }
+            updateTaskDueDateLocally(taskId, dueDate: dueDate, in: &tasks[i].children)
         }
     }
 

@@ -7,6 +7,7 @@ final class CreateTaskViewModel {
     var priority: Int = 1
     var labels: [String] = []
     var dueDate: String?
+    var dueString: String?
     var parentId: String?
     var isSaving = false
     var error: String?
@@ -32,7 +33,8 @@ final class CreateTaskViewModel {
             labels: labels,
             priority: priority,
             parentId: parentId,
-            dueDate: dueDate
+            dueDate: dueDate,
+            dueString: dueString
         )
         do {
             _ = try await repository.createTask(request)
@@ -55,6 +57,7 @@ final class CreateTaskViewModel {
         priority = 1
         labels = []
         dueDate = nil
+        dueString = nil
         parentId = nil
         error = nil
     }

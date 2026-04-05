@@ -9,6 +9,7 @@ struct CreateTaskRequest: Codable {
     var priority: Int = 1
     var parentId: String?
     var dueDate: String?
+    var dueString: String?
 }
 
 struct UpdateTaskRequest: Codable {

@@ -136,6 +136,29 @@ struct TaskListView: View {
                         Label("Priority", systemImage: "flag")
                     }
 
+                    Menu {
+                        Button {
+                            Task { await viewModel.updateTaskDueDate(displayTask.task, dueDate: DueDateHelper.todayString()) }
+                        } label: {
+                            Label("Today", systemImage: "calendar")
+                        }
+                        Button {
+                            Task { await viewModel.updateTaskDueDate(displayTask.task, dueDate: DueDateHelper.tomorrowString()) }
+                        } label: {
+                            Label("Tomorrow", systemImage: "sun.max")
+                        }
+                        if displayTask.task.due != nil {
+                            Divider()
+                            Button(role: .destructive) {
+                                Task { await viewModel.updateTaskDueDate(displayTask.task, dueDate: "") }
+                            } label: {
+                                Label("Clear Date", systemImage: "calendar.badge.minus")
+                            }
+                        }
+                    } label: {
+                        Label("Due Date", systemImage: "calendar")
+                    }
+
                     Button {
                         subtaskParentId = displayTask.task.id
                         showCreateTask = true
