@@ -10,6 +10,8 @@ final class TaskListViewModel {
     var currentView: TaskView = .all
     var collapsedIds: Set<String> = []
     var selectedPriorities: Set<Int> = []
+    var selectedLabels: Set<String> = []
+    var linksOnly = false
     var activeContextId: String?
     var searchText = ""
 
@@ -26,11 +28,17 @@ final class TaskListViewModel {
         if !selectedPriorities.isEmpty {
             result = filterByPriority(result, priorities: selectedPriorities)
         }
+        if !selectedLabels.isEmpty {
+            result = filterByLabels(result, labels: selectedLabels)
+        }
+        if linksOnly {
+            result = filterByLinks(result)
+        }
         return flattenForDisplay(result, collapsedIds: collapsedIds)
     }
 
     var isFiltering: Bool {
-        !selectedPriorities.isEmpty
+        !selectedPriorities.isEmpty || !selectedLabels.isEmpty || linksOnly
     }
 
     var isSearching: Bool {
@@ -82,7 +90,7 @@ final class TaskListViewModel {
     @MainActor
     func switchContext(_ contextId: String?) async {
         activeContextId = contextId
-        selectedPriorities.removeAll()
+        clearAllFilters()
         searchText = ""
         await loadTasks(view: currentView)
     }
@@ -202,10 +210,46 @@ final class TaskListViewModel {
         } else {
             selectedPriorities.insert(priority)
         }
+        persistFilters()
     }
 
-    func clearPriorityFilter() {
+    func toggleLabelFilter(_ label: String) {
+        if selectedLabels.contains(label) {
+            selectedLabels.remove(label)
+        } else {
+            selectedLabels.insert(label)
+        }
+        persistFilters()
+    }
+
+    func toggleLinksOnly() {
+        linksOnly.toggle()
+        persistFilters()
+    }
+
+    func clearAllFilters() {
         selectedPriorities.removeAll()
+        selectedLabels.removeAll()
+        linksOnly = false
+        persistFilters()
+    }
+
+    func restoreFilters(from state: AllFiltersState) {
+        selectedPriorities = Set(state.selectedPriorities)
+        selectedLabels = Set(state.selectedLabels)
+        linksOnly = state.linksOnly
+    }
+
+    private func persistFilters() {
+        let filters = AllFiltersState(
+            selectedPriorities: Array(selectedPriorities),
+            selectedLabels: Array(selectedLabels),
+            linksOnly: linksOnly,
+            filtersExpanded: false
+        )
+        Task {
+            try? await repository.patchState(PatchStateRequest(allFilters: filters))
+        }
     }
 
     func findTask(by id: String) -> TaskItem? {
@@ -236,6 +280,34 @@ final class TaskListViewModel {
         tasks.compactMap { task in
             let filteredChildren = filterByPriority(task.children, priorities: priorities)
             if priorities.contains(task.priority) || !filteredChildren.isEmpty {
+                var filtered = task
+                filtered.children = filteredChildren
+                return filtered
+            }
+            return nil
+        }
+    }
+
+    private static let linkRegex = try! NSRegularExpression(pattern: "https?://\\S+")
+
+    private func filterByLabels(_ tasks: [TaskItem], labels: Set<String>) -> [TaskItem] {
+        tasks.compactMap { task in
+            let filteredChildren = filterByLabels(task.children, labels: labels)
+            if task.labels.contains(where: { labels.contains($0) }) || !filteredChildren.isEmpty {
+                var filtered = task
+                filtered.children = filteredChildren
+                return filtered
+            }
+            return nil
+        }
+    }
+
+    private func filterByLinks(_ tasks: [TaskItem]) -> [TaskItem] {
+        tasks.compactMap { task in
+            let filteredChildren = filterByLinks(task.children)
+            let range = NSRange(task.content.startIndex..., in: task.content)
+            let hasLink = Self.linkRegex.firstMatch(in: task.content, range: range) != nil
+            if hasLink || !filteredChildren.isEmpty {
                 var filtered = task
                 filtered.children = filteredChildren
                 return filtered

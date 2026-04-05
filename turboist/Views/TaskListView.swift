@@ -44,21 +44,47 @@ struct TaskListView: View {
             if viewModel.currentView == .all {
                 ToolbarItem(placement: .topBarLeading) {
                     Menu {
-                        ForEach(Priority.allCases.reversed()) { priority in
-                            Button {
-                                viewModel.togglePriorityFilter(priority.rawValue)
-                            } label: {
-                                if viewModel.selectedPriorities.contains(priority.rawValue) {
-                                    Label(priority.label, systemImage: "checkmark")
-                                } else {
-                                    Text(priority.label)
+                        Menu("Priority") {
+                            ForEach(Priority.allCases.reversed()) { priority in
+                                Button {
+                                    viewModel.togglePriorityFilter(priority.rawValue)
+                                } label: {
+                                    if viewModel.selectedPriorities.contains(priority.rawValue) {
+                                        Label(priority.label, systemImage: "checkmark")
+                                    } else {
+                                        Text(priority.label)
+                                    }
                                 }
+                            }
+                        }
+                        if let configStore, !configStore.labels.isEmpty {
+                            Menu("Labels") {
+                                ForEach(configStore.labels) { label in
+                                    Button {
+                                        viewModel.toggleLabelFilter(label.name)
+                                    } label: {
+                                        if viewModel.selectedLabels.contains(label.name) {
+                                            Label(label.name, systemImage: "checkmark")
+                                        } else {
+                                            Text(label.name)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        Button {
+                            viewModel.toggleLinksOnly()
+                        } label: {
+                            if viewModel.linksOnly {
+                                Label("Links Only", systemImage: "checkmark")
+                            } else {
+                                Text("Links Only")
                             }
                         }
                         if viewModel.isFiltering {
                             Divider()
                             Button("Clear Filters") {
-                                viewModel.clearPriorityFilter()
+                                viewModel.clearAllFilters()
                             }
                         }
                     } label: {

@@ -584,7 +584,7 @@ struct PriorityFilterTests {
 
         await MainActor.run {
             vm.togglePriorityFilter(4)
-            vm.clearPriorityFilter()
+            vm.clearAllFilters()
         }
         await #expect(vm.displayTasks.count == 2)
     }
@@ -2149,5 +2149,190 @@ struct SearchTests {
         vm.searchText = "refactor"
 
         #expect(vm.filteredBacklogTasks.count == 2)
+    }
+
+    // MARK: - All Tasks Filtering (7.13)
+
+    @Test func filterByLabelShowsMatchingTasks() async {
+        let repo = MockTaskRepository()
+        let vm = TaskListViewModel(repository: repo)
+        vm.tasks = [
+            makeTask(id: "1", content: "Task A", labels: ["work"]),
+            makeTask(id: "2", content: "Task B", labels: ["personal"]),
+            makeTask(id: "3", content: "Task C", labels: ["work", "urgent"]),
+        ]
+
+        vm.toggleLabelFilter("work")
+
+        #expect(vm.displayTasks.count == 2)
+        #expect(vm.displayTasks.map(\.task.id).contains("1"))
+        #expect(vm.displayTasks.map(\.task.id).contains("3"))
+    }
+
+    @Test func filterByMultipleLabels() async {
+        let repo = MockTaskRepository()
+        let vm = TaskListViewModel(repository: repo)
+        vm.tasks = [
+            makeTask(id: "1", content: "Task A", labels: ["work"]),
+            makeTask(id: "2", content: "Task B", labels: ["personal"]),
+            makeTask(id: "3", content: "Task C", labels: ["urgent"]),
+        ]
+
+        vm.toggleLabelFilter("work")
+        vm.toggleLabelFilter("personal")
+
+        #expect(vm.displayTasks.count == 2)
+        #expect(vm.displayTasks.map(\.task.id).contains("1"))
+        #expect(vm.displayTasks.map(\.task.id).contains("2"))
+    }
+
+    @Test func filterByLinksOnlyShowsTasksWithUrls() async {
+        let repo = MockTaskRepository()
+        let vm = TaskListViewModel(repository: repo)
+        vm.tasks = [
+            makeTask(id: "1", content: "Check https://example.com for details"),
+            makeTask(id: "2", content: "Regular task without links"),
+            makeTask(id: "3", content: "See http://test.org/page"),
+        ]
+
+        vm.toggleLinksOnly()
+
+        #expect(vm.displayTasks.count == 2)
+        #expect(vm.displayTasks.map(\.task.id).contains("1"))
+        #expect(vm.displayTasks.map(\.task.id).contains("3"))
+    }
+
+    @Test func linksOnlyExcludesNonLinkContent() async {
+        let repo = MockTaskRepository()
+        let vm = TaskListViewModel(repository: repo)
+        vm.tasks = [
+            makeTask(id: "1", content: "Not a link: ftp://server"),
+            makeTask(id: "2", content: "Has link https://x.com"),
+        ]
+
+        vm.toggleLinksOnly()
+
+        #expect(vm.displayTasks.count == 1)
+        #expect(vm.displayTasks[0].task.id == "2")
+    }
+
+    @Test func combinesPriorityAndLabelFilters() async {
+        let repo = MockTaskRepository()
+        let vm = TaskListViewModel(repository: repo)
+        vm.tasks = [
+            makeTask(id: "1", content: "A", priority: 4, labels: ["work"]),
+            makeTask(id: "2", content: "B", priority: 1, labels: ["work"]),
+            makeTask(id: "3", content: "C", priority: 4, labels: ["personal"]),
+        ]
+
+        vm.togglePriorityFilter(4)
+        vm.toggleLabelFilter("work")
+
+        #expect(vm.displayTasks.count == 1)
+        #expect(vm.displayTasks[0].task.id == "1")
+    }
+
+    @Test func clearAllFiltersResetsEverything() async {
+        let repo = MockTaskRepository()
+        let vm = TaskListViewModel(repository: repo)
+        vm.tasks = [
+            makeTask(id: "1", content: "https://x.com", labels: ["work"]),
+            makeTask(id: "2", content: "Task B"),
+        ]
+
+        vm.togglePriorityFilter(4)
+        vm.toggleLabelFilter("work")
+        vm.toggleLinksOnly()
+        #expect(vm.isFiltering)
+
+        vm.clearAllFilters()
+        #expect(!vm.isFiltering)
+        #expect(vm.selectedPriorities.isEmpty)
+        #expect(vm.selectedLabels.isEmpty)
+        #expect(!vm.linksOnly)
+        #expect(vm.displayTasks.count == 2)
+    }
+
+    @Test func isFilteringReflectsLabelFilter() async {
+        let repo = MockTaskRepository()
+        let vm = TaskListViewModel(repository: repo)
+
+        #expect(!vm.isFiltering)
+        vm.toggleLabelFilter("work")
+        #expect(vm.isFiltering)
+    }
+
+    @Test func isFilteringReflectsLinksOnly() async {
+        let repo = MockTaskRepository()
+        let vm = TaskListViewModel(repository: repo)
+
+        #expect(!vm.isFiltering)
+        vm.toggleLinksOnly()
+        #expect(vm.isFiltering)
+    }
+
+    @Test func restoreFiltersFromState() async {
+        let repo = MockTaskRepository()
+        let vm = TaskListViewModel(repository: repo)
+
+        let state = AllFiltersState(
+            selectedPriorities: [3, 4],
+            selectedLabels: ["work", "urgent"],
+            linksOnly: true,
+            filtersExpanded: false
+        )
+        vm.restoreFilters(from: state)
+
+        #expect(vm.selectedPriorities == Set([3, 4]))
+        #expect(vm.selectedLabels == Set(["work", "urgent"]))
+        #expect(vm.linksOnly)
+    }
+
+    @Test func labelFilterIncludesParentWhenChildMatches() async {
+        let repo = MockTaskRepository()
+        let vm = TaskListViewModel(repository: repo)
+        vm.tasks = [
+            makeTask(id: "1", content: "Parent", labels: [], children: [
+                makeTask(id: "2", content: "Child", labels: ["work"])
+            ]),
+        ]
+
+        vm.toggleLabelFilter("work")
+
+        #expect(vm.displayTasks.count == 2)
+        #expect(vm.displayTasks[0].task.id == "1")
+        #expect(vm.displayTasks[1].task.id == "2")
+    }
+
+    @Test func persistFiltersSendsPatchState() async {
+        let repo = MockTaskRepository()
+        let vm = TaskListViewModel(repository: repo)
+
+        vm.toggleLabelFilter("work")
+
+        // Wait briefly for the background Task to run
+        try? await Task.sleep(for: .milliseconds(50))
+
+        #expect(repo.patchStateCalled)
+        #expect(repo.lastPatchStateRequest?.allFilters != nil)
+        #expect(repo.lastPatchStateRequest?.allFilters?.selectedLabels == ["work"])
+    }
+
+    @Test func patchStateRequestEncodesAllFilters() throws {
+        let filters = AllFiltersState(
+            selectedPriorities: [3, 4],
+            selectedLabels: ["work"],
+            linksOnly: true,
+            filtersExpanded: false
+        )
+        let request = PatchStateRequest(allFilters: filters)
+        let encoder = JSONEncoder()
+        encoder.keyEncodingStrategy = .convertToSnakeCase
+        let data = try encoder.encode(request)
+        let json = try JSONSerialization.jsonObject(with: data) as! [String: Any]
+        let allFilters = json["all_filters"] as! [String: Any]
+        #expect(allFilters["links_only"] as! Bool == true)
+        #expect(allFilters["selected_priorities"] as! [Int] == [3, 4])
+        #expect(allFilters["selected_labels"] as! [String] == ["work"])
     }
 }

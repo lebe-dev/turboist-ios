@@ -44,6 +44,7 @@ struct PatchStateRequest: Codable {
     var dayPartNotes: [String: String]?
     var planningOpen: Bool?
     var pinnedTasks: [PinnedTask]?
+    var allFilters: AllFiltersState?
 }
 
 // MARK: - Response types

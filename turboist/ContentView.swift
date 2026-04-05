@@ -91,6 +91,9 @@ struct ContentView: View {
                     taskListViewModel.activeContextId = contextId
                 }
                 let initialView = TaskView(rawValue: config.state.activeView) ?? .all
+                if let allFilters = config.state.allFilters {
+                    taskListViewModel.restoreFilters(from: allFilters)
+                }
                 taskListViewModel.currentView = initialView
                 await taskListViewModel.loadTasks(view: initialView)
             } catch {
@@ -102,7 +105,7 @@ struct ContentView: View {
     private func switchView(_ newView: TaskView) {
         guard newView != taskListViewModel.currentView else { return }
         configStore.setActiveView(newView, repository: taskListViewModel.repository)
-        taskListViewModel.selectedPriorities.removeAll()
+        taskListViewModel.clearAllFilters()
         Task {
             await taskListViewModel.loadTasks(view: newView)
         }
