@@ -9,9 +9,15 @@ struct CreateTaskView: View {
     let availableLabels: [TaskLabel]
     let onCreated: () -> Void
 
-    init(repository: TaskRepositoryProtocol, parentId: String? = nil, availableLabels: [TaskLabel] = [], onCreated: @escaping () -> Void) {
+    init(repository: TaskRepositoryProtocol, parentId: String? = nil, availableLabels: [TaskLabel] = [], configStore: AppConfigStore? = nil, onCreated: @escaping () -> Void) {
         let vm = CreateTaskViewModel(repository: repository)
         vm.parentId = parentId
+        if let store = configStore {
+            vm.configure(
+                compiledAutoLabels: store.compiledAutoLabels,
+                contextLabels: store.activeContextLabels()
+            )
+        }
         _viewModel = State(initialValue: vm)
         self.availableLabels = availableLabels
         self.onCreated = onCreated
@@ -35,22 +41,7 @@ struct CreateTaskView: View {
                     }
                 }
 
-                if !availableLabels.isEmpty {
-                    Section("Labels") {
-                        if !viewModel.labels.isEmpty {
-                            FlowLayout(spacing: 6) {
-                                ForEach(viewModel.labels, id: \.self) { label in
-                                    LabelBadge(name: label, availableLabels: availableLabels)
-                                }
-                            }
-                        }
-                        Button {
-                            showLabelPicker = true
-                        } label: {
-                            Label(viewModel.labels.isEmpty ? "Add Labels" : "Edit Labels", systemImage: "tag")
-                        }
-                    }
-                }
+                labelsSection
 
                 Section("Due Date") {
                     if let dueDate = viewModel.dueDate {
@@ -143,6 +134,53 @@ struct CreateTaskView: View {
                             viewModel.dueDate = DueDateHelper.todayString()
                         }
                     }
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var labelsSection: some View {
+        Section("Labels") {
+            if !viewModel.allLabels.isEmpty {
+                FlowLayout(spacing: 6) {
+                    ForEach(viewModel.contextLabels, id: \.self) { label in
+                        LabelBadge(name: label, availableLabels: availableLabels)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 6)
+                                    .strokeBorder(.secondary.opacity(0.5), lineWidth: 1)
+                            )
+                    }
+                    ForEach(viewModel.matchedAutoLabels, id: \.self) { label in
+                        HStack(spacing: 4) {
+                            LabelBadge(name: label, availableLabels: availableLabels)
+                            Button {
+                                viewModel.dismissAutoLabel(label)
+                            } label: {
+                                Image(systemName: "xmark.circle.fill")
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 6)
+                                .strokeBorder(style: StrokeStyle(lineWidth: 1, dash: [4, 3]))
+                                .foregroundStyle(.secondary.opacity(0.5))
+                        )
+                    }
+                    ForEach(viewModel.labels.filter { label in
+                        !viewModel.contextLabels.contains(label) && !viewModel.matchedAutoLabels.contains(label)
+                    }, id: \.self) { label in
+                        LabelBadge(name: label, availableLabels: availableLabels)
+                    }
+                }
+            }
+            if !availableLabels.isEmpty {
+                Button {
+                    showLabelPicker = true
+                } label: {
+                    Label(viewModel.labels.isEmpty ? "Add Labels" : "Edit Labels", systemImage: "tag")
                 }
             }
         }

@@ -66,7 +66,7 @@ struct TaskListView: View {
             }
         }
         .sheet(isPresented: $showCreateTask) {
-            CreateTaskView(repository: viewModel.repository, parentId: subtaskParentId, availableLabels: configStore?.labels ?? []) {
+            CreateTaskView(repository: viewModel.repository, parentId: subtaskParentId, availableLabels: configStore?.labels ?? [], configStore: configStore) {
                 Task { await viewModel.loadTasks(view: viewModel.currentView) }
             }
         }

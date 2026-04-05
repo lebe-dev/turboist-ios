@@ -12,6 +12,38 @@ final class AppConfigStore {
         config?.labelConfigs ?? []
     }
 
+    var autoLabels: [AutoLabelMapping] {
+        config?.autoLabels ?? []
+    }
+
+    var compiledAutoLabels: [CompiledAutoLabel] {
+        AutoLabelMatcher.compile(autoLabels)
+    }
+
+    var contexts: [TaskContext] {
+        config?.contexts ?? []
+    }
+
+    var activeContextId: String {
+        config?.state.activeContextId ?? ""
+    }
+
+    var activeContext: TaskContext? {
+        guard !activeContextId.isEmpty else { return nil }
+        return contexts.first { $0.id == activeContextId }
+    }
+
+    func contextLabels(for contextId: String) -> [String] {
+        guard let context = contexts.first(where: { $0.id == contextId }),
+              context.inheritLabels else { return [] }
+        return context.filters.labels
+    }
+
+    func activeContextLabels() -> [String] {
+        guard let context = activeContext, context.inheritLabels else { return [] }
+        return context.filters.labels
+    }
+
     func labelColor(_ name: String) -> Color? {
         guard let label = labels.first(where: { $0.name == name }) else { return nil }
         return Color(hex: label.color)

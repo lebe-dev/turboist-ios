@@ -979,3 +979,256 @@ func makeUserState() -> UserState {
         allFilters: nil
     )
 }
+
+// MARK: - AutoLabelMatcher Tests
+
+struct AutoLabelMatcherTests {
+    @Test func compileNormalizesMaskWhenIgnoreCase() {
+        let compiled = AutoLabelMatcher.compile([
+            AutoLabelMapping(mask: "Купить", label: "покупки", ignoreCase: true)
+        ])
+        #expect(compiled[0].mask == "купить")
+        #expect(compiled[0].ignoreCase == true)
+    }
+
+    @Test func compilePreservesCaseWhenNotIgnoreCase() {
+        let compiled = AutoLabelMatcher.compile([
+            AutoLabelMapping(mask: "Купить", label: "покупки", ignoreCase: false)
+        ])
+        #expect(compiled[0].mask == "Купить")
+        #expect(compiled[0].ignoreCase == false)
+    }
+
+    @Test func compileReturnsEmptyForEmptyInput() {
+        let compiled = AutoLabelMatcher.compile([])
+        #expect(compiled.isEmpty)
+    }
+
+    @Test func matchReturnsMatchingLabels() {
+        let compiled = AutoLabelMatcher.compile([
+            AutoLabelMapping(mask: "купить", label: "покупки", ignoreCase: true)
+        ])
+        let result = AutoLabelMatcher.match(title: "купить молоко", compiled: compiled)
+        #expect(result == ["покупки"])
+    }
+
+    @Test func matchReturnsEmptyWhenNoMatch() {
+        let compiled = AutoLabelMatcher.compile([
+            AutoLabelMapping(mask: "купить", label: "покупки", ignoreCase: true)
+        ])
+        let result = AutoLabelMatcher.match(title: "позвонить другу", compiled: compiled)
+        #expect(result.isEmpty)
+    }
+
+    @Test func matchIsCaseInsensitiveWhenConfigured() {
+        let compiled = AutoLabelMatcher.compile([
+            AutoLabelMapping(mask: "купить", label: "покупки", ignoreCase: true)
+        ])
+        let result = AutoLabelMatcher.match(title: "КУПИТЬ хлеб", compiled: compiled)
+        #expect(result == ["покупки"])
+    }
+
+    @Test func matchIsCaseSensitiveWhenConfigured() {
+        let compiled = AutoLabelMatcher.compile([
+            AutoLabelMapping(mask: "купить", label: "покупки", ignoreCase: false)
+        ])
+        #expect(AutoLabelMatcher.match(title: "КУПИТЬ хлеб", compiled: compiled).isEmpty)
+        #expect(AutoLabelMatcher.match(title: "купить хлеб", compiled: compiled) == ["покупки"])
+    }
+
+    @Test func matchReturnsMultipleLabels() {
+        let compiled = AutoLabelMatcher.compile([
+            AutoLabelMapping(mask: "купить", label: "покупки", ignoreCase: true),
+            AutoLabelMapping(mask: "встреча", label: "работа", ignoreCase: true)
+        ])
+        let result = AutoLabelMatcher.match(title: "встреча и купить кофе", compiled: compiled)
+        #expect(result == ["покупки", "работа"])
+    }
+
+    @Test func matchReturnsEmptyForEmptyTitle() {
+        let compiled = AutoLabelMatcher.compile([
+            AutoLabelMapping(mask: "купить", label: "покупки", ignoreCase: true)
+        ])
+        let result = AutoLabelMatcher.match(title: "", compiled: compiled)
+        #expect(result.isEmpty)
+    }
+}
+
+// MARK: - CreateTaskViewModel Auto-Labels Tests
+
+struct CreateTaskAutoLabelsTests {
+    @Test func autoLabelsMatchedFromContent() async {
+        let mock = MockTaskRepository()
+        let vm = await CreateTaskViewModel(repository: mock)
+        let compiled = AutoLabelMatcher.compile([
+            AutoLabelMapping(mask: "купить", label: "покупки", ignoreCase: true)
+        ])
+        await MainActor.run {
+            vm.configure(compiledAutoLabels: compiled, contextLabels: [])
+            vm.content = "Купить молоко"
+        }
+
+        await MainActor.run {
+            #expect(vm.matchedAutoLabels == ["покупки"])
+        }
+    }
+
+    @Test func autoLabelsCanBeDismissed() async {
+        let mock = MockTaskRepository()
+        let vm = await CreateTaskViewModel(repository: mock)
+        let compiled = AutoLabelMatcher.compile([
+            AutoLabelMapping(mask: "купить", label: "покупки", ignoreCase: true)
+        ])
+        await MainActor.run {
+            vm.configure(compiledAutoLabels: compiled, contextLabels: [])
+            vm.content = "Купить молоко"
+            vm.dismissAutoLabel("покупки")
+        }
+
+        await MainActor.run {
+            #expect(vm.matchedAutoLabels.isEmpty)
+        }
+    }
+
+    @Test func contextLabelsIncludedInAllLabels() async {
+        let mock = MockTaskRepository()
+        let vm = await CreateTaskViewModel(repository: mock)
+        await MainActor.run {
+            vm.configure(compiledAutoLabels: [], contextLabels: ["work", "urgent"])
+            vm.content = "Some task"
+        }
+
+        await MainActor.run {
+            #expect(vm.allLabels.contains("work"))
+            #expect(vm.allLabels.contains("urgent"))
+        }
+    }
+
+    @Test func allLabelsCombinesManualAutoAndContext() async {
+        let mock = MockTaskRepository()
+        let vm = await CreateTaskViewModel(repository: mock)
+        let compiled = AutoLabelMatcher.compile([
+            AutoLabelMapping(mask: "купить", label: "покупки", ignoreCase: true)
+        ])
+        await MainActor.run {
+            vm.configure(compiledAutoLabels: compiled, contextLabels: ["work"])
+            vm.content = "Купить молоко"
+            vm.labels = ["manual"]
+        }
+
+        await MainActor.run {
+            let all = Set(vm.allLabels)
+            #expect(all.contains("покупки"))
+            #expect(all.contains("work"))
+            #expect(all.contains("manual"))
+        }
+    }
+
+    @Test func createTaskSendsAllLabels() async {
+        let mock = MockTaskRepository()
+        let vm = await CreateTaskViewModel(repository: mock)
+        let compiled = AutoLabelMatcher.compile([
+            AutoLabelMapping(mask: "купить", label: "покупки", ignoreCase: true)
+        ])
+        await MainActor.run {
+            vm.configure(compiledAutoLabels: compiled, contextLabels: ["ctx"])
+            vm.content = "Купить молоко"
+            vm.labels = ["manual"]
+        }
+
+        let success = await vm.createTask()
+
+        #expect(success)
+        let sentLabels = Set(mock.lastCreateRequest?.labels ?? [])
+        #expect(sentLabels.contains("покупки"))
+        #expect(sentLabels.contains("ctx"))
+        #expect(sentLabels.contains("manual"))
+    }
+
+    @Test func resetClearsRemovedAutoLabels() async {
+        let mock = MockTaskRepository()
+        let vm = await CreateTaskViewModel(repository: mock)
+        await MainActor.run {
+            vm.dismissAutoLabel("some-label")
+            vm.reset()
+        }
+
+        await MainActor.run {
+            #expect(vm.removedAutoLabels.isEmpty)
+        }
+    }
+}
+
+// MARK: - AppConfigStore Context Labels Tests
+
+struct AppConfigStoreContextLabelsTests {
+    @Test func activeContextLabelsReturnsLabelsWhenInherit() {
+        let store = AppConfigStore()
+        store.setConfig(makeConfig(
+            contexts: [TaskContext(id: "ctx1", displayName: "Work", color: "#ff0000", inheritLabels: true, filters: ContextFilters(projects: [], sections: [], labels: ["work", "office"]))],
+            activeContextId: "ctx1"
+        ))
+
+        #expect(store.activeContextLabels() == ["work", "office"])
+    }
+
+    @Test func activeContextLabelsReturnsEmptyWhenNoInherit() {
+        let store = AppConfigStore()
+        store.setConfig(makeConfig(
+            contexts: [TaskContext(id: "ctx1", displayName: "Work", color: nil, inheritLabels: false, filters: ContextFilters(projects: [], sections: [], labels: ["work"]))],
+            activeContextId: "ctx1"
+        ))
+
+        #expect(store.activeContextLabels().isEmpty)
+    }
+
+    @Test func activeContextLabelsReturnsEmptyWhenNoActiveContext() {
+        let store = AppConfigStore()
+        store.setConfig(makeConfig(contexts: [], activeContextId: ""))
+
+        #expect(store.activeContextLabels().isEmpty)
+    }
+
+    @Test func contextLabelsForSpecificContext() {
+        let store = AppConfigStore()
+        store.setConfig(makeConfig(
+            contexts: [
+                TaskContext(id: "ctx1", displayName: "Work", color: nil, inheritLabels: true, filters: ContextFilters(projects: [], sections: [], labels: ["work"])),
+                TaskContext(id: "ctx2", displayName: "Home", color: nil, inheritLabels: false, filters: ContextFilters(projects: [], sections: [], labels: ["home"]))
+            ],
+            activeContextId: ""
+        ))
+
+        #expect(store.contextLabels(for: "ctx1") == ["work"])
+        #expect(store.contextLabels(for: "ctx2").isEmpty)
+    }
+}
+
+private func makeConfig(contexts: [TaskContext] = [], activeContextId: String = "") -> AppConfig {
+    AppConfig(
+        settings: AppSettings(
+            pollInterval: 30, syncInterval: 10, timezone: "UTC",
+            weeklyLabel: "weekly", backlogLabel: "backlog",
+            projectLabel: "project", projectsLabel: "projects",
+            weeklyLimit: 20, backlogLimit: 50, completedDays: 7,
+            maxPinned: 5, lastSyncedAt: nil, dayParts: [],
+            maxDayPartNoteLength: 200, inboxProjectId: "inbox",
+            inboxLimit: 50, inboxOverflowTaskContent: "Too many tasks"
+        ),
+        contexts: contexts,
+        projects: [],
+        labels: [],
+        labelConfigs: [],
+        autoLabels: [],
+        quickCapture: nil,
+        projectTasks: [],
+        labelProjectMap: [],
+        autoRemove: AutoRemoveStatus(rules: [], paused: false),
+        state: UserState(
+            pinnedTasks: [], activeContextId: activeContextId,
+            activeView: "all", collapsedIds: [],
+            sidebarCollapsed: false, planningOpen: false,
+            dayPartNotes: [:], locale: "en", allFilters: nil
+        )
+    )
+}

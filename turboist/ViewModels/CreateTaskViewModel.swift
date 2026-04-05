@@ -12,7 +12,11 @@ final class CreateTaskViewModel {
     var isSaving = false
     var error: String?
 
+    var removedAutoLabels: Set<String> = []
+    var contextLabels: [String] = []
+
     private let repository: TaskRepositoryProtocol
+    private var compiledAutoLabels: [CompiledAutoLabel] = []
 
     init(repository: TaskRepositoryProtocol) {
         self.repository = repository
@@ -20,6 +24,32 @@ final class CreateTaskViewModel {
 
     var isValid: Bool {
         !content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    var matchedAutoLabels: [String] {
+        guard !content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return [] }
+        return AutoLabelMatcher.match(title: content, compiled: compiledAutoLabels)
+            .filter { !removedAutoLabels.contains($0) }
+    }
+
+    var allLabels: [String] {
+        var result = Set(labels)
+        for label in matchedAutoLabels {
+            result.insert(label)
+        }
+        for label in contextLabels {
+            result.insert(label)
+        }
+        return Array(result)
+    }
+
+    func configure(compiledAutoLabels: [CompiledAutoLabel], contextLabels: [String]) {
+        self.compiledAutoLabels = compiledAutoLabels
+        self.contextLabels = contextLabels
+    }
+
+    func dismissAutoLabel(_ label: String) {
+        removedAutoLabels.insert(label)
     }
 
     @MainActor
@@ -30,7 +60,7 @@ final class CreateTaskViewModel {
         let request = CreateTaskRequest(
             content: content.trimmingCharacters(in: .whitespacesAndNewlines),
             description: description,
-            labels: labels,
+            labels: allLabels,
             priority: priority,
             parentId: parentId,
             dueDate: dueDate,
@@ -60,5 +90,6 @@ final class CreateTaskViewModel {
         dueString = nil
         parentId = nil
         error = nil
+        removedAutoLabels = []
     }
 }
