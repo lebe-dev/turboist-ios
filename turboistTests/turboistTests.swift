@@ -1504,3 +1504,180 @@ struct ViewSwitchingTests {
         #expect(vm.meta?.inboxCount == 55)
     }
 }
+
+// MARK: - Day Part Grouping Tests
+
+@Suite("Day Part Grouping")
+struct DayPartGroupingTests {
+    let dayParts: [DayPart] = [
+        DayPart(label: "утро", start: 6, end: 12),
+        DayPart(label: "день", start: 12, end: 18),
+        DayPart(label: "вечер", start: 18, end: 23)
+    ]
+
+    @Test func groupsTasksByDayPartLabel() {
+        let tasks = [
+            makeTask(id: "1", content: "Morning", labels: ["утро"]),
+            makeTask(id: "2", content: "Evening", labels: ["вечер"]),
+            makeTask(id: "3", content: "No time", labels: [])
+        ]
+
+        let sections = groupTasksByDayPart(tasks: tasks, dayParts: dayParts, dayPartNotes: [:])
+
+        #expect(sections.count == 4) // 3 day parts + unassigned
+        #expect(sections[0].label == "утро")
+        #expect(sections[0].tasks.count == 1)
+        #expect(sections[0].tasks[0].id == "1")
+        #expect(sections[1].label == "день")
+        #expect(sections[1].tasks.isEmpty)
+        #expect(sections[2].label == "вечер")
+        #expect(sections[2].tasks.count == 1)
+        #expect(sections[2].tasks[0].id == "2")
+        #expect(sections[3].label == "Без времени")
+        #expect(sections[3].tasks.count == 1)
+        #expect(sections[3].tasks[0].id == "3")
+    }
+
+    @Test func unassignedSectionContainsTasksWithoutDayPartLabel() {
+        let tasks = [
+            makeTask(id: "1", content: "Task A", labels: ["work"]),
+            makeTask(id: "2", content: "Task B", labels: ["home", "urgent"])
+        ]
+
+        let sections = groupTasksByDayPart(tasks: tasks, dayParts: dayParts, dayPartNotes: [:])
+
+        let unassigned = sections.last!
+        #expect(unassigned.id == "__unassigned__")
+        #expect(unassigned.tasks.count == 2)
+    }
+
+    @Test func emptyDayPartsReturnsSingleSection() {
+        let tasks = [makeTask(id: "1", content: "Task")]
+        let sections = groupTasksByDayPart(tasks: tasks, dayParts: [], dayPartNotes: [:])
+
+        #expect(sections.count == 1)
+        #expect(sections[0].tasks.count == 1)
+    }
+
+    @Test func dayPartNotesAreIncludedInSections() {
+        let notes: [String: String] = [
+            "утро": "Focus on deep work",
+            "__unassigned__": "Review later"
+        ]
+
+        let sections = groupTasksByDayPart(tasks: [], dayParts: dayParts, dayPartNotes: notes)
+
+        #expect(sections[0].note == "Focus on deep work")
+        #expect(sections[1].note == "") // день - no note
+        #expect(sections[2].note == "") // вечер - no note
+        #expect(sections[3].note == "Review later") // unassigned
+    }
+
+    @Test func iconsAssignedCorrectly() {
+        let sections = groupTasksByDayPart(tasks: [], dayParts: dayParts, dayPartNotes: [:])
+
+        #expect(sections[0].icon == "sunrise") // first
+        #expect(sections[1].icon == "sun.max") // middle
+        #expect(sections[2].icon == "moon")    // last
+        #expect(sections[3].icon == "clock")   // unassigned
+    }
+
+    @Test func timeRangeFormatting() {
+        let sections = groupTasksByDayPart(tasks: [], dayParts: dayParts, dayPartNotes: [:])
+
+        #expect(sections[0].timeRange == "6:00–12:00")
+        #expect(sections[1].timeRange == "12:00–18:00")
+        #expect(sections[2].timeRange == "18:00–23:00")
+    }
+
+    @Test func taskWithMultipleDayPartLabelsGoesToFirst() {
+        let tasks = [
+            makeTask(id: "1", content: "Multi", labels: ["утро", "вечер"])
+        ]
+
+        let sections = groupTasksByDayPart(tasks: tasks, dayParts: dayParts, dayPartNotes: [:])
+
+        #expect(sections[0].tasks.count == 1) // утро gets it (first matching label)
+        #expect(sections[2].tasks.isEmpty)    // вечер doesn't get it
+    }
+}
+
+// MARK: - Day Part Notes Tests
+
+@Suite("Day Part Notes")
+struct DayPartNotesTests {
+    @Test func setDayPartNoteUpdatesState() {
+        let repo = MockTaskRepository()
+        let store = AppConfigStore()
+        store.setConfig(makeConfigWithDayParts())
+
+        store.setDayPartNote("утро", text: "Focus time", repository: repo)
+
+        #expect(store.dayPartNotes["утро"] == "Focus time")
+    }
+
+    @Test func clearDayPartNoteRemovesKey() {
+        let repo = MockTaskRepository()
+        let store = AppConfigStore()
+        var config = makeConfigWithDayParts()
+        config.state.dayPartNotes["утро"] = "Old note"
+        store.setConfig(config)
+
+        store.setDayPartNote("утро", text: "", repository: repo)
+
+        #expect(store.dayPartNotes["утро"] == nil)
+    }
+
+    @Test func dayPartNoteTruncatedToMaxLength() {
+        let repo = MockTaskRepository()
+        let store = AppConfigStore()
+        store.setConfig(makeConfigWithDayParts())
+
+        let longText = String(repeating: "x", count: 300)
+        store.setDayPartNote("утро", text: longText, repository: repo)
+
+        #expect(store.dayPartNotes["утро"]?.count == 200)
+    }
+
+    @Test func dayPartsAccessor() {
+        let store = AppConfigStore()
+        store.setConfig(makeConfigWithDayParts())
+
+        #expect(store.dayParts.count == 3)
+        #expect(store.dayParts[0].label == "утро")
+    }
+}
+
+private func makeConfigWithDayParts() -> AppConfig {
+    AppConfig(
+        settings: AppSettings(
+            pollInterval: 30, syncInterval: 10, timezone: "UTC",
+            weeklyLabel: "weekly", backlogLabel: "backlog",
+            projectLabel: "project", projectsLabel: "projects",
+            weeklyLimit: 20, backlogLimit: 50, completedDays: 7,
+            maxPinned: 5, lastSyncedAt: nil,
+            dayParts: [
+                DayPart(label: "утро", start: 6, end: 12),
+                DayPart(label: "день", start: 12, end: 18),
+                DayPart(label: "вечер", start: 18, end: 23)
+            ],
+            maxDayPartNoteLength: 200, inboxProjectId: "inbox",
+            inboxLimit: 50, inboxOverflowTaskContent: "Too many tasks"
+        ),
+        contexts: [],
+        projects: [],
+        labels: [],
+        labelConfigs: [],
+        autoLabels: [],
+        quickCapture: nil,
+        projectTasks: [],
+        labelProjectMap: [],
+        autoRemove: AutoRemoveStatus(rules: [], paused: false),
+        state: UserState(
+            pinnedTasks: [], activeContextId: "",
+            activeView: "today", collapsedIds: [],
+            sidebarCollapsed: false, planningOpen: false,
+            dayPartNotes: [:], locale: "en", allFilters: nil
+        )
+    )
+}

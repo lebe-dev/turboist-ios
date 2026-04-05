@@ -164,97 +164,133 @@ struct TaskListView: View {
         }
     }
 
+    private var isDayPartView: Bool {
+        viewModel.currentView == .today || viewModel.currentView == .tomorrow
+    }
+
+    private var dayPartSections: [DayPartSection] {
+        guard let configStore else { return [] }
+        return groupTasksByDayPart(
+            tasks: viewModel.tasks,
+            dayParts: configStore.dayParts,
+            dayPartNotes: configStore.dayPartNotes
+        )
+    }
+
     private var taskList: some View {
         List {
-            ForEach(viewModel.displayTasks) { displayTask in
-                NavigationLink(value: displayTask.task) {
-                    TaskRowView(
-                        task: displayTask.task,
-                        depth: displayTask.depth,
-                        hasChildren: displayTask.hasChildren,
-                        isCollapsed: viewModel.collapsedIds.contains(displayTask.task.id),
+            if isDayPartView && configStore != nil {
+                ForEach(dayPartSections) { section in
+                    DayPartSectionView(
+                        section: section,
+                        collapsedIds: viewModel.collapsedIds,
                         availableLabels: configStore?.labels ?? [],
-                        onComplete: {
-                            Task { await viewModel.completeTask(displayTask.task) }
+                        onComplete: { task in
+                            Task { await viewModel.completeTask(task) }
                         },
-                        onToggleCollapse: {
-                            Task { await viewModel.toggleCollapsed(displayTask.task.id) }
+                        onToggleCollapse: { taskId in
+                            Task { await viewModel.toggleCollapsed(taskId) }
+                        },
+                        onNoteChanged: { label, text in
+                            configStore?.setDayPartNote(label, text: text, repository: viewModel.repository)
                         }
                     )
                 }
-                .swipeActions(edge: .trailing) {
-                    Button(role: .destructive) {
-                        taskToDelete = displayTask.task
-                    } label: {
-                        Label("Delete", systemImage: "trash")
-                    }
+            } else {
+                ForEach(viewModel.displayTasks) { displayTask in
+                    taskRow(displayTask)
                 }
-                .swipeActions(edge: .leading) {
-                    Button {
-                        Task { await viewModel.completeTask(displayTask.task) }
-                    } label: {
-                        Label("Complete", systemImage: "checkmark")
-                    }
-                    .tint(.green)
-                }
-                .contextMenu {
-                    Menu {
-                        ForEach(Priority.allCases.reversed()) { priority in
-                            Button {
-                                Task { await viewModel.updateTaskPriority(displayTask.task, priority: priority.rawValue) }
-                            } label: {
-                                Label(priority.label, systemImage: displayTask.task.priority == priority.rawValue ? "checkmark" : "flag.fill")
-                            }
-                        }
-                    } label: {
-                        Label("Priority", systemImage: "flag")
-                    }
+            }
+        }
+    }
 
-                    Menu {
-                        Button {
-                            Task { await viewModel.updateTaskDueDate(displayTask.task, dueDate: DueDateHelper.todayString()) }
-                        } label: {
-                            Label("Today", systemImage: "calendar")
-                        }
-                        Button {
-                            Task { await viewModel.updateTaskDueDate(displayTask.task, dueDate: DueDateHelper.tomorrowString()) }
-                        } label: {
-                            Label("Tomorrow", systemImage: "sun.max")
-                        }
-                        if displayTask.task.due != nil {
-                            Divider()
-                            Button(role: .destructive) {
-                                Task { await viewModel.updateTaskDueDate(displayTask.task, dueDate: "") }
-                            } label: {
-                                Label("Clear Date", systemImage: "calendar.badge.minus")
-                            }
-                        }
-                    } label: {
-                        Label("Due Date", systemImage: "calendar")
-                    }
-
+    private func taskRow(_ displayTask: DisplayTask) -> some View {
+        NavigationLink(value: displayTask.task) {
+            TaskRowView(
+                task: displayTask.task,
+                depth: displayTask.depth,
+                hasChildren: displayTask.hasChildren,
+                isCollapsed: viewModel.collapsedIds.contains(displayTask.task.id),
+                availableLabels: configStore?.labels ?? [],
+                onComplete: {
+                    Task { await viewModel.completeTask(displayTask.task) }
+                },
+                onToggleCollapse: {
+                    Task { await viewModel.toggleCollapsed(displayTask.task.id) }
+                }
+            )
+        }
+        .swipeActions(edge: .trailing) {
+            Button(role: .destructive) {
+                taskToDelete = displayTask.task
+            } label: {
+                Label("Delete", systemImage: "trash")
+            }
+        }
+        .swipeActions(edge: .leading) {
+            Button {
+                Task { await viewModel.completeTask(displayTask.task) }
+            } label: {
+                Label("Complete", systemImage: "checkmark")
+            }
+            .tint(.green)
+        }
+        .contextMenu {
+            Menu {
+                ForEach(Priority.allCases.reversed()) { priority in
                     Button {
-                        subtaskParentId = displayTask.task.id
-                        showCreateTask = true
+                        Task { await viewModel.updateTaskPriority(displayTask.task, priority: priority.rawValue) }
                     } label: {
-                        Label("Add Subtask", systemImage: "plus.square")
-                    }
-                    Button {
-                        Task { await viewModel.duplicateTask(displayTask.task) }
-                    } label: {
-                        Label("Duplicate", systemImage: "doc.on.doc")
-                    }
-                    Button {
-                        taskToMove = displayTask.task
-                    } label: {
-                        Label("Move", systemImage: "arrow.right")
-                    }
-                    Button(role: .destructive) {
-                        taskToDelete = displayTask.task
-                    } label: {
-                        Label("Delete", systemImage: "trash")
+                        Label(priority.label, systemImage: displayTask.task.priority == priority.rawValue ? "checkmark" : "flag.fill")
                     }
                 }
+            } label: {
+                Label("Priority", systemImage: "flag")
+            }
+
+            Menu {
+                Button {
+                    Task { await viewModel.updateTaskDueDate(displayTask.task, dueDate: DueDateHelper.todayString()) }
+                } label: {
+                    Label("Today", systemImage: "calendar")
+                }
+                Button {
+                    Task { await viewModel.updateTaskDueDate(displayTask.task, dueDate: DueDateHelper.tomorrowString()) }
+                } label: {
+                    Label("Tomorrow", systemImage: "sun.max")
+                }
+                if displayTask.task.due != nil {
+                    Divider()
+                    Button(role: .destructive) {
+                        Task { await viewModel.updateTaskDueDate(displayTask.task, dueDate: "") }
+                    } label: {
+                        Label("Clear Date", systemImage: "calendar.badge.minus")
+                    }
+                }
+            } label: {
+                Label("Due Date", systemImage: "calendar")
+            }
+
+            Button {
+                subtaskParentId = displayTask.task.id
+                showCreateTask = true
+            } label: {
+                Label("Add Subtask", systemImage: "plus.square")
+            }
+            Button {
+                Task { await viewModel.duplicateTask(displayTask.task) }
+            } label: {
+                Label("Duplicate", systemImage: "doc.on.doc")
+            }
+            Button {
+                taskToMove = displayTask.task
+            } label: {
+                Label("Move", systemImage: "arrow.right")
+            }
+            Button(role: .destructive) {
+                taskToDelete = displayTask.task
+            } label: {
+                Label("Delete", systemImage: "trash")
             }
         }
     }

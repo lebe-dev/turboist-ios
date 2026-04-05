@@ -80,6 +80,31 @@ final class AppConfigStore {
         }
     }
 
+    var dayPartNotes: [String: String] {
+        config?.state.dayPartNotes ?? [:]
+    }
+
+    var dayParts: [DayPart] {
+        config?.settings.dayParts ?? []
+    }
+
+    var maxDayPartNoteLength: Int {
+        config?.settings.maxDayPartNoteLength ?? 200
+    }
+
+    func setDayPartNote(_ label: String, text: String, repository: TaskRepositoryProtocol) {
+        let trimmed = String(text.prefix(maxDayPartNoteLength))
+        if trimmed.isEmpty {
+            config?.state.dayPartNotes.removeValue(forKey: label)
+        } else {
+            config?.state.dayPartNotes[label] = trimmed
+        }
+        let notes = config?.state.dayPartNotes ?? [:]
+        Task {
+            try? await repository.patchState(PatchStateRequest(dayPartNotes: notes))
+        }
+    }
+
     func setActiveContext(_ contextId: String?, repository: TaskRepositoryProtocol) {
         let newId = contextId ?? ""
         guard newId != activeContextId else { return }

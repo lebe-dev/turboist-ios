@@ -41,6 +41,7 @@ struct PatchStateRequest: Codable {
     var collapsedIds: [String]?
     var activeContextId: String?
     var activeView: String?
+    var dayPartNotes: [String: String]?
 }
 
 // MARK: - Response types
