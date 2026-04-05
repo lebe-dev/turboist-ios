@@ -69,6 +69,6 @@ final class TaskRepository: TaskRepositoryProtocol {
     }
 
     func patchState(_ request: PatchStateRequest) async throws {
-        let _: OkResponse = try await apiClient.patchState(request)
+        try await apiClient.patchState(request)
     }
 }

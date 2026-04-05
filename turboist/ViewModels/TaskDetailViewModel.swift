@@ -16,6 +16,8 @@ final class TaskDetailViewModel {
 
     func setTask(_ task: TaskItem) {
         self.task = task
+        self.completedSubtasks = []
+        self.error = nil
     }
 
     @MainActor

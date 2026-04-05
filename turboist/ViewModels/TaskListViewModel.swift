@@ -115,15 +115,10 @@ final class TaskListViewModel {
                 completedTaskContent: task.content
             )
         } else {
-            nextActionPrompt = NextActionPrompt(
-                parentId: nil,
-                parentContent: task.content,
-                completedTaskLabels: task.labels,
-                completedTaskContent: task.content
-            )
+            nextActionPrompt = nil
         }
 
-        tasks.removeAll { $0.id == task.id }
+        removeTaskRecursive(task.id, from: &tasks)
         do {
             try await repository.completeTask(id: task.id)
         } catch {
@@ -137,7 +132,7 @@ final class TaskListViewModel {
 
     @MainActor
     func deleteTask(_ task: TaskItem) async {
-        tasks.removeAll { $0.id == task.id }
+        removeTaskRecursive(task.id, from: &tasks)
         do {
             try await repository.deleteTask(id: task.id)
         } catch {
@@ -188,6 +183,16 @@ final class TaskListViewModel {
             try await repository.updateTask(id: task.id, request)
         } catch {
             await loadTasks(view: currentView)
+        }
+    }
+
+    private func removeTaskRecursive(_ taskId: String, from tasks: inout [TaskItem]) {
+        if tasks.contains(where: { $0.id == taskId }) {
+            tasks.removeAll { $0.id == taskId }
+            return
+        }
+        for i in tasks.indices {
+            removeTaskRecursive(taskId, from: &tasks[i].children)
         }
     }
 

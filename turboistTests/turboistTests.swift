@@ -236,6 +236,7 @@ struct TaskListViewModelTests {
 
         #expect(mock.completeTaskCalled)
         #expect(mock.lastCompleteId == "1")
+        #expect(await vm.tasks.isEmpty)
     }
 
     @Test func deleteTaskRemovesFromList() async {
@@ -252,6 +253,7 @@ struct TaskListViewModelTests {
 
         #expect(mock.deleteTaskCalled)
         #expect(mock.lastDeleteId == "1")
+        #expect(await vm.tasks.isEmpty)
     }
 
     @Test func duplicateTaskCallsRepository() async {
@@ -2487,7 +2489,7 @@ struct NextActionTests {
         #expect(vm.nextActionPrompt?.isSubtask == true)
     }
 
-    @Test func completeStandaloneTaskSetsFollowUpPrompt() async {
+    @Test func completeStandaloneTaskDoesNotSetPrompt() async {
         let repo = MockTaskRepository()
         let vm = TaskListViewModel(repository: repo)
         let task = makeTask(id: "task-1", content: "Standalone", labels: ["review"])
@@ -2495,17 +2497,14 @@ struct NextActionTests {
 
         await vm.completeTask(task)
 
-        #expect(vm.nextActionPrompt != nil)
-        #expect(vm.nextActionPrompt?.parentId == nil)
-        #expect(vm.nextActionPrompt?.completedTaskContent == "Standalone")
-        #expect(vm.nextActionPrompt?.completedTaskLabels == ["review"])
-        #expect(vm.nextActionPrompt?.isSubtask == false)
+        #expect(vm.nextActionPrompt == nil)
     }
 
     @Test func dismissNextActionClearsPrompt() async {
         let repo = MockTaskRepository()
         let vm = TaskListViewModel(repository: repo)
-        let task = makeTask(id: "task-1", content: "Test")
+        let child = makeTask(id: "child-1", content: "Child", parentId: "task-1")
+        let task = makeTask(id: "task-1", content: "Test", children: [child])
         await MainActor.run { vm.tasks = [task] }
 
         await vm.completeTask(task)
@@ -2519,7 +2518,8 @@ struct NextActionTests {
         let repo = MockTaskRepository()
         let vm = TaskListViewModel(repository: repo)
         let labels = ["weekly", "backend", "p1"]
-        let task = makeTask(id: "task-1", content: "Labeled task", labels: labels)
+        let child = makeTask(id: "child-1", content: "Child", parentId: "task-1")
+        let task = makeTask(id: "task-1", content: "Labeled task", labels: labels, children: [child])
         await MainActor.run { vm.tasks = [task] }
 
         await vm.completeTask(task)

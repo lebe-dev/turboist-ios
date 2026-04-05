@@ -42,6 +42,7 @@ final class ConnectionStatusStore {
         graceTask = nil
     }
 
+    @MainActor
     func setPendingActionCount(_ count: Int) {
         pendingActionCount = count
     }

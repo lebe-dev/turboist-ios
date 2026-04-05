@@ -116,13 +116,16 @@ final class PlanningViewModel {
 
     @MainActor
     func acceptAll() async {
-        guard !backlogTasks.isEmpty else { return }
+        guard !backlogTasks.isEmpty, !isAtLimit else { return }
         isAcceptingAll = true
+
+        let remaining = weeklyLimitValue > 0 ? max(0, weeklyLimitValue - weeklyCount) : backlogTasks.count
+        let tasksToMove = Array(backlogTasks.prefix(remaining))
 
         var updates: [String: [String]] = [:]
         var movedTasks: [TaskItem] = []
 
-        for task in backlogTasks {
+        for task in tasksToMove {
             var newLabels = task.labels.filter { $0 != backlogLabel }
             if !newLabels.contains(weeklyLabel) {
                 newLabels.append(weeklyLabel)
@@ -134,8 +137,9 @@ final class PlanningViewModel {
         }
 
         // Optimistic update
-        let movedCount = backlogTasks.count
-        backlogTasks.removeAll()
+        let movedCount = tasksToMove.count
+        let movedIds = Set(tasksToMove.map(\.id))
+        backlogTasks.removeAll { movedIds.contains($0.id) }
         weeklyTasks.append(contentsOf: movedTasks)
         meta?.weeklyCount += movedCount
         meta?.backlogCount = 0

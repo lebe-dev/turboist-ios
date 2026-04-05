@@ -60,9 +60,27 @@ final class APIClient {
     // MARK: - Tasks
 
     func fetchTasks(view: TaskView, context: String? = nil) async throws -> TasksResponse {
-        var params: [String: String] = ["view": view.rawValue]
-        if let context { params["context"] = context }
-        return try await get("/api/tasks", queryParams: params)
+        let path: String
+        var params: [String: String] = [:]
+        switch view {
+        case .all:
+            path = "/api/tasks"
+            if let context { params["context"] = context }
+        case .inbox:
+            path = "/api/tasks/inbox"
+        case .today:
+            path = "/api/tasks/today"
+        case .tomorrow:
+            path = "/api/tasks/tomorrow"
+        case .weekly:
+            path = "/api/tasks/weekly"
+        case .backlog:
+            path = "/api/tasks/backlog"
+        case .completed:
+            path = "/api/tasks/completed"
+        }
+        if view != .all, let context { params["context"] = context }
+        return try await get(path, queryParams: params)
     }
 
     func createTask(_ request: CreateTaskRequest) async throws -> CreateTaskResponse {
@@ -107,8 +125,13 @@ final class APIClient {
 
     // MARK: - State
 
-    func patchState(_ request: PatchStateRequest) async throws -> OkResponse {
-        try await patch("/api/state", body: request)
+    func patchState(_ request: PatchStateRequest) async throws {
+        let url = try buildURL("/api/state")
+        var urlRequest = URLRequest(url: url)
+        urlRequest.httpMethod = "PATCH"
+        urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        urlRequest.httpBody = try encoder.encode(request)
+        try await performVoid(urlRequest)
     }
 
     // MARK: - Generic HTTP methods
@@ -164,6 +187,35 @@ final class APIClient {
             throw APIError.invalidURL
         }
         return url
+    }
+
+    private func performVoid(_ request: URLRequest) async throws {
+        let data: Data
+        let response: URLResponse
+        do {
+            (data, response) = try await session.data(for: request)
+        } catch {
+            throw APIError.networkError(error)
+        }
+
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw APIError.networkError(URLError(.badServerResponse))
+        }
+
+        switch httpResponse.statusCode {
+        case 200...204:
+            return
+        case 401:
+            throw APIError.unauthorized
+        case 404:
+            throw APIError.notFound
+        case 429:
+            throw APIError.rateLimited
+        case 500...599:
+            throw APIError.serverError(httpResponse.statusCode)
+        default:
+            throw APIError.serverError(httpResponse.statusCode)
+        }
     }
 
     private func perform<T: Decodable>(_ request: URLRequest) async throws -> T {

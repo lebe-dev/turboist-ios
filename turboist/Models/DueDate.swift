@@ -25,6 +25,18 @@ enum DueDateHelper {
         return f
     }()
 
+    private static let displayFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "d MMM"
+        return f
+    }()
+
+    private static let weekDayFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "EEE"
+        return f
+    }()
+
     static func parse(_ dateString: String) -> Date? {
         dateFormatter.date(from: dateString)
     }
@@ -55,9 +67,7 @@ enum DueDateHelper {
         if calendar.isDateInToday(taskDate) { return "Today" }
         if calendar.isDateInTomorrow(taskDate) { return "Tomorrow" }
 
-        let formatter = DateFormatter()
-        formatter.dateFormat = "d MMM"
-        return formatter.string(from: date)
+        return displayFormatter.string(from: date)
     }
 
     static func todayString() -> String {
@@ -71,11 +81,9 @@ enum DueDateHelper {
     static func weekDays() -> [(label: String, date: String)] {
         let calendar = Calendar.current
         let today = Date()
-        let formatter = DateFormatter()
-        formatter.dateFormat = "EEE"
         return (2...7).map { offset in
             let date = calendar.date(byAdding: .day, value: offset, to: today)!
-            return (label: formatter.string(from: date), date: format(date))
+            return (label: weekDayFormatter.string(from: date), date: format(date))
         }
     }
 

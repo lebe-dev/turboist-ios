@@ -51,6 +51,11 @@ struct DayPartSectionView: View {
         } header: {
             sectionHeader
         }
+        .onChange(of: section.note) { _, newValue in
+            if !isEditingNote {
+                noteText = newValue
+            }
+        }
     }
 
     private var sectionHeader: some View {
