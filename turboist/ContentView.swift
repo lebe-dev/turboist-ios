@@ -6,6 +6,7 @@ struct ContentView: View {
     @State private var taskDetailViewModel: TaskDetailViewModel
     @State private var planningViewModel: PlanningViewModel
     @State private var configStore = AppConfigStore()
+    @State private var connectionStore = ConnectionStatusStore()
     @State private var showPlanning = false
     @State private var showQuickCapture = false
     @State private var navigationPath = NavigationPath()
@@ -22,6 +23,11 @@ struct ContentView: View {
     var body: some View {
         NavigationStack(path: $navigationPath) {
             VStack(spacing: 0) {
+                ConnectionStatusView(
+                    connectionState: connectionStore.connectionState,
+                    pendingActionCount: connectionStore.pendingActionCount
+                )
+
                 PinnedTasksView(
                     pinnedTasks: configStore.pinnedTasks,
                     onTapTask: { taskId in
@@ -99,6 +105,12 @@ struct ContentView: View {
                     onExit: { closePlanning() }
                 )
             }
+        }
+        .onAppear {
+            connectionStore.start()
+        }
+        .onDisappear {
+            connectionStore.stop()
         }
         .task {
             do {

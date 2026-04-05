@@ -901,10 +901,10 @@ enum ActionType: String, Codable {
 
 ### 7.16. Индикатор соединения
 
-- [ ] **Online** — скрыт (или минимальный зелёный индикатор)
-- [ ] **Connecting** — оранжевый, "Подключение..."
-- [ ] **Offline** — красный, "Оффлайн", badge с количеством pending actions
-- [ ] **Offline grace period** — 5 секунд задержки перед показом offline-баннера
+- [x] **Online** — скрыт (или минимальный зелёный индикатор)
+- [x] **Connecting** — оранжевый, "Подключение..."
+- [x] **Offline** — красный, "Оффлайн", badge с количеством pending actions
+- [x] **Offline grace period** — 5 секунд задержки перед показом offline-баннера
 
 ### 7.17. Auto-remove информация
 

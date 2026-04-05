@@ -2527,3 +2527,82 @@ struct NextActionTests {
         #expect(vm.nextActionPrompt?.completedTaskLabels == labels)
     }
 }
+
+// MARK: - Connection Status Tests
+
+@Suite("ConnectionStatusStore Tests")
+struct ConnectionStatusStoreTests {
+
+    @Test("Initial state is online")
+    func testInitialState() {
+        let store = ConnectionStatusStore()
+        #expect(store.connectionState == .online)
+        #expect(store.pendingActionCount == 0)
+        #expect(store.isVisible == false)
+    }
+
+    @Test("markOnline sets state to online")
+    @MainActor
+    func testMarkOnline() {
+        let store = ConnectionStatusStore()
+        store.markConnecting()
+        #expect(store.connectionState == .connecting)
+        store.markOnline()
+        #expect(store.connectionState == .online)
+        #expect(store.isVisible == false)
+    }
+
+    @Test("markConnecting sets state to connecting")
+    @MainActor
+    func testMarkConnecting() {
+        let store = ConnectionStatusStore()
+        store.markConnecting()
+        #expect(store.connectionState == .connecting)
+        #expect(store.isVisible == true)
+    }
+
+    @Test("markOffline transitions through connecting to offline after grace period")
+    @MainActor
+    func testMarkOfflineGracePeriod() async {
+        let store = ConnectionStatusStore()
+        store.markOffline()
+        #expect(store.connectionState == .connecting)
+
+        try? await Task.sleep(for: .seconds(ConnectionStatusStore.offlineGracePeriod + 0.5))
+        #expect(store.connectionState == .offline)
+        #expect(store.isVisible == true)
+    }
+
+    @Test("markOnline cancels grace period transition")
+    @MainActor
+    func testMarkOnlineCancelsGrace() async {
+        let store = ConnectionStatusStore()
+        store.markOffline()
+        #expect(store.connectionState == .connecting)
+
+        try? await Task.sleep(for: .seconds(1))
+        store.markOnline()
+        #expect(store.connectionState == .online)
+
+        try? await Task.sleep(for: .seconds(ConnectionStatusStore.offlineGracePeriod + 0.5))
+        #expect(store.connectionState == .online)
+    }
+
+    @Test("setPendingActionCount updates count")
+    func testSetPendingActionCount() {
+        let store = ConnectionStatusStore()
+        store.setPendingActionCount(5)
+        #expect(store.pendingActionCount == 5)
+    }
+
+    @Test("isVisible returns false for online, true for connecting and offline")
+    @MainActor
+    func testIsVisible() {
+        let store = ConnectionStatusStore()
+        #expect(store.isVisible == false)
+        store.markConnecting()
+        #expect(store.isVisible == true)
+        store.markOnline()
+        #expect(store.isVisible == false)
+    }
+}
