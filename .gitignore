@@ -1,2 +1,5 @@
 /tasks
 /turboist-pwa
+*.md
+!README.md
+!DEV.md
