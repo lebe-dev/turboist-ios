@@ -11,7 +11,7 @@ struct AppConfig: Codable {
     let projectTasks: [ProjectTask]
     let labelProjectMap: [LabelProjectMapping]
     let autoRemove: AutoRemoveStatus
-    let state: UserState
+    var state: UserState
 }
 
 struct AppSettings: Codable {

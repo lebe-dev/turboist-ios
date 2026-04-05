@@ -39,6 +39,7 @@ struct LoginRequest: Codable {
 
 struct PatchStateRequest: Codable {
     var collapsedIds: [String]?
+    var activeContextId: String?
 }
 
 // MARK: - Response types

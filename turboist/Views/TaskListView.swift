@@ -22,6 +22,18 @@ struct TaskListView: View {
         }
         .navigationTitle(viewModel.currentView.rawValue.capitalized)
         .toolbar {
+            if let configStore, !configStore.contexts.isEmpty {
+                ToolbarItem(placement: .principal) {
+                    ContextPickerView(
+                        contexts: configStore.contexts,
+                        activeContextId: viewModel.activeContextId
+                    ) { contextId in
+                        configStore.setActiveContext(contextId, repository: viewModel.repository)
+                        Task { await viewModel.switchContext(contextId) }
+                    }
+                }
+            }
+
             if viewModel.currentView == .all {
                 ToolbarItem(placement: .topBarLeading) {
                     Menu {

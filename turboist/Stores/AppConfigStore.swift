@@ -3,6 +3,7 @@ import SwiftUI
 @Observable
 final class AppConfigStore {
     var config: AppConfig?
+    var onContextChanged: ((String?) -> Void)?
 
     var labels: [TaskLabel] {
         config?.labels ?? []
@@ -55,6 +56,16 @@ final class AppConfigStore {
 
     func setConfig(_ config: AppConfig) {
         self.config = config
+    }
+
+    func setActiveContext(_ contextId: String?, repository: TaskRepositoryProtocol) {
+        let newId = contextId ?? ""
+        guard newId != activeContextId else { return }
+        config?.state.activeContextId = newId
+        onContextChanged?(contextId)
+        Task {
+            try? await repository.patchState(PatchStateRequest(activeContextId: newId))
+        }
     }
 }
 

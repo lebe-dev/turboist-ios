@@ -10,6 +10,7 @@ final class TaskListViewModel {
     var currentView: TaskView = .all
     var collapsedIds: Set<String> = []
     var selectedPriorities: Set<Int> = []
+    var activeContextId: String?
 
     var displayTasks: [DisplayTask] {
         let filtered = selectedPriorities.isEmpty ? tasks : filterByPriority(tasks, priorities: selectedPriorities)
@@ -46,10 +47,11 @@ final class TaskListViewModel {
 
     @MainActor
     func loadTasks(view: TaskView = .all, context: String? = nil) async {
+        let effectiveContext = context ?? activeContextId
         isLoading = true
         error = nil
         do {
-            let response = try await repository.fetchTasks(view: view, context: context)
+            let response = try await repository.fetchTasks(view: view, context: effectiveContext)
             tasks = response.tasks
             meta = response.meta
             currentView = view
@@ -59,6 +61,13 @@ final class TaskListViewModel {
             self.error = error.localizedDescription
         }
         isLoading = false
+    }
+
+    @MainActor
+    func switchContext(_ contextId: String?) async {
+        activeContextId = contextId
+        selectedPriorities.removeAll()
+        await loadTasks(view: currentView)
     }
 
     @MainActor

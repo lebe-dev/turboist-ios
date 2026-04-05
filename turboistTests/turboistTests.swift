@@ -32,10 +32,14 @@ final class MockTaskRepository: TaskRepositoryProtocol {
     var lastPatchStateRequest: PatchStateRequest?
     var batchUpdateLabelsCalled = false
     var lastBatchUpdateLabels: [String: [String]]?
+    var lastFetchView: TaskView?
+    var lastFetchContext: String?
 
     func fetchTasks(view: TaskView, context: String?) async throws -> TasksResponse {
+        lastFetchView = view
+        lastFetchContext = context
         if let error = fetchTasksError { throw error }
-        return fetchTasksResult ?? TasksResponse(tasks: [], meta: TasksMeta(context: "", weeklyLimit: 0, weeklyCount: 0, backlogLimit: 0, backlogCount: 0))
+        return fetchTasksResult ?? TasksResponse(tasks: [], meta: TasksMeta(context: context ?? "", weeklyLimit: 0, weeklyCount: 0, backlogLimit: 0, backlogCount: 0))
     }
 
     func createTask(_ request: CreateTaskRequest) async throws -> CreateTaskResponse {
@@ -1231,4 +1235,162 @@ private func makeConfig(contexts: [TaskContext] = [], activeContextId: String = 
             dayPartNotes: [:], locale: "en", allFilters: nil
         )
     )
+}
+
+// MARK: - Context Tests
+
+@Suite("Context switching")
+struct ContextTests {
+    @Test func switchContextSetsActiveContextId() async {
+        let repo = MockTaskRepository()
+        let vm = TaskListViewModel(repository: repo)
+
+        await vm.switchContext("work")
+
+        #expect(vm.activeContextId == "work")
+        #expect(repo.lastFetchContext == "work")
+    }
+
+    @Test func switchContextClearsPriorityFilters() async {
+        let repo = MockTaskRepository()
+        let vm = TaskListViewModel(repository: repo)
+        vm.selectedPriorities = [1, 2]
+
+        await vm.switchContext("home")
+
+        #expect(vm.selectedPriorities.isEmpty)
+    }
+
+    @Test func switchContextToNilClearsContext() async {
+        let repo = MockTaskRepository()
+        let vm = TaskListViewModel(repository: repo)
+        vm.activeContextId = "work"
+
+        await vm.switchContext(nil)
+
+        #expect(vm.activeContextId == nil)
+        #expect(repo.lastFetchContext == nil)
+    }
+
+    @Test func loadTasksUsesActiveContext() async {
+        let repo = MockTaskRepository()
+        let vm = TaskListViewModel(repository: repo)
+        vm.activeContextId = "work"
+
+        await vm.loadTasks(view: .today)
+
+        #expect(repo.lastFetchContext == "work")
+        #expect(repo.lastFetchView == .today)
+    }
+
+    @Test func loadTasksExplicitContextOverridesActive() async {
+        let repo = MockTaskRepository()
+        let vm = TaskListViewModel(repository: repo)
+        vm.activeContextId = "work"
+
+        await vm.loadTasks(view: .all, context: "home")
+
+        #expect(repo.lastFetchContext == "home")
+    }
+
+    @Test func configStoreActiveContext() {
+        let store = AppConfigStore()
+        let contexts = [
+            TaskContext(id: "work", displayName: "Work", color: "#FF0000", inheritLabels: false, filters: ContextFilters(projects: [], sections: [], labels: [])),
+            TaskContext(id: "home", displayName: "Home", color: "#00FF00", inheritLabels: true, filters: ContextFilters(projects: [], sections: [], labels: ["home"]))
+        ]
+        let config = makeConfig(contexts: contexts, activeContextId: "work")
+        store.setConfig(config)
+
+        #expect(store.activeContextId == "work")
+        #expect(store.activeContext?.displayName == "Work")
+    }
+
+    @Test func configStoreSetActiveContextPersists() async {
+        let store = AppConfigStore()
+        let repo = MockTaskRepository()
+        let contexts = [
+            TaskContext(id: "work", displayName: "Work", color: nil, inheritLabels: false, filters: ContextFilters(projects: [], sections: [], labels: [])),
+            TaskContext(id: "home", displayName: "Home", color: nil, inheritLabels: true, filters: ContextFilters(projects: [], sections: [], labels: ["home"]))
+        ]
+        let config = makeConfig(contexts: contexts, activeContextId: "work")
+        store.setConfig(config)
+
+        store.setActiveContext("home", repository: repo)
+
+        #expect(store.activeContextId == "home")
+        #expect(store.activeContext?.displayName == "Home")
+        // Give the Task time to fire
+        try? await Task.sleep(for: .milliseconds(100))
+        #expect(repo.patchStateCalled)
+        #expect(repo.lastPatchStateRequest?.activeContextId == "home")
+    }
+
+    @Test func configStoreSetActiveContextToNil() async {
+        let store = AppConfigStore()
+        let repo = MockTaskRepository()
+        let config = makeConfig(contexts: [], activeContextId: "work")
+        store.setConfig(config)
+
+        store.setActiveContext(nil, repository: repo)
+
+        #expect(store.activeContextId == "")
+        #expect(store.activeContext == nil)
+        try? await Task.sleep(for: .milliseconds(100))
+        #expect(repo.lastPatchStateRequest?.activeContextId == "")
+    }
+
+    @Test func configStoreContextLabelsInheritance() {
+        let store = AppConfigStore()
+        let contexts = [
+            TaskContext(id: "home", displayName: "Home", color: nil, inheritLabels: true, filters: ContextFilters(projects: [], sections: [], labels: ["personal", "family"]))
+        ]
+        let config = makeConfig(contexts: contexts, activeContextId: "home")
+        store.setConfig(config)
+
+        let labels = store.activeContextLabels()
+        #expect(labels == ["personal", "family"])
+    }
+
+    @Test func configStoreNoInheritWhenDisabled() {
+        let store = AppConfigStore()
+        let contexts = [
+            TaskContext(id: "work", displayName: "Work", color: nil, inheritLabels: false, filters: ContextFilters(projects: [], sections: [], labels: ["work"]))
+        ]
+        let config = makeConfig(contexts: contexts, activeContextId: "work")
+        store.setConfig(config)
+
+        let labels = store.activeContextLabels()
+        #expect(labels.isEmpty)
+    }
+
+    @Test func configStoreOnContextChangedCallback() {
+        let store = AppConfigStore()
+        let repo = MockTaskRepository()
+        let config = makeConfig(contexts: [
+            TaskContext(id: "work", displayName: "Work", color: nil, inheritLabels: false, filters: ContextFilters(projects: [], sections: [], labels: []))
+        ], activeContextId: "")
+        store.setConfig(config)
+
+        var receivedContextId: String? = "none"
+        store.onContextChanged = { contextId in
+            receivedContextId = contextId
+        }
+
+        store.setActiveContext("work", repository: repo)
+        #expect(receivedContextId == "work")
+
+        store.setActiveContext(nil, repository: repo)
+        #expect(receivedContextId == nil)
+    }
+
+    @Test func patchStateRequestEncodesActiveContextId() throws {
+        let request = PatchStateRequest(activeContextId: "work")
+        let encoder = JSONEncoder()
+        encoder.keyEncodingStrategy = .convertToSnakeCase
+        let data = try encoder.encode(request)
+        let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+        #expect(json?["active_context_id"] as? String == "work")
+        #expect(json?["collapsed_ids"] == nil)
+    }
 }

@@ -39,6 +39,10 @@ struct ContentView: View {
                 let config = try await apiClient.fetchConfig()
                 configStore.setConfig(config)
                 taskListViewModel.setCollapsedIds(config.state.collapsedIds)
+                let contextId = config.state.activeContextId
+                if !contextId.isEmpty {
+                    taskListViewModel.activeContextId = contextId
+                }
             } catch {
                 // Non-critical, proceed without persisted state
             }
