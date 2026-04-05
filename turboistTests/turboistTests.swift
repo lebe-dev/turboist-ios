@@ -481,6 +481,134 @@ struct CollapsedIdsTests {
     }
 }
 
+// MARK: - Priority tests
+
+struct PriorityTests {
+    @Test func priorityFromRawValue() {
+        #expect(Priority(rawPriority: 4) == .p1)
+        #expect(Priority(rawPriority: 3) == .p2)
+        #expect(Priority(rawPriority: 2) == .p3)
+        #expect(Priority(rawPriority: 1) == .p4)
+    }
+
+    @Test func priorityDefaultsToP4ForInvalidValue() {
+        #expect(Priority(rawPriority: 0) == .p4)
+        #expect(Priority(rawPriority: 99) == .p4)
+    }
+
+    @Test func priorityLabels() {
+        #expect(Priority.p1.label == "P1 - Urgent")
+        #expect(Priority.p2.label == "P2 - High")
+        #expect(Priority.p3.label == "P3 - Medium")
+        #expect(Priority.p4.label == "P4 - Low")
+    }
+
+    @Test func priorityShortLabels() {
+        #expect(Priority.p1.shortLabel == "P1")
+        #expect(Priority.p4.shortLabel == "P4")
+    }
+}
+
+struct PriorityFilterTests {
+    @Test func filterByPriorityShowsMatchingTasks() async {
+        let mock = MockTaskRepository()
+        let tasks = [
+            makeTask(id: "1", content: "Urgent", priority: 4),
+            makeTask(id: "2", content: "Low", priority: 1),
+            makeTask(id: "3", content: "High", priority: 3),
+        ]
+        mock.fetchTasksResult = TasksResponse(
+            tasks: tasks,
+            meta: TasksMeta(context: "", weeklyLimit: 0, weeklyCount: 0, backlogLimit: 0, backlogCount: 0)
+        )
+        let vm = await TaskListViewModel(repository: mock)
+        await vm.loadTasks()
+
+        await MainActor.run { vm.togglePriorityFilter(4) }
+        await #expect(vm.displayTasks.count == 1)
+        await #expect(vm.displayTasks[0].task.id == "1")
+    }
+
+    @Test func filterByMultiplePriorities() async {
+        let mock = MockTaskRepository()
+        let tasks = [
+            makeTask(id: "1", priority: 4),
+            makeTask(id: "2", priority: 1),
+            makeTask(id: "3", priority: 3),
+        ]
+        mock.fetchTasksResult = TasksResponse(
+            tasks: tasks,
+            meta: TasksMeta(context: "", weeklyLimit: 0, weeklyCount: 0, backlogLimit: 0, backlogCount: 0)
+        )
+        let vm = await TaskListViewModel(repository: mock)
+        await vm.loadTasks()
+
+        await MainActor.run {
+            vm.togglePriorityFilter(4)
+            vm.togglePriorityFilter(3)
+        }
+        await #expect(vm.displayTasks.count == 2)
+    }
+
+    @Test func clearPriorityFilterShowsAll() async {
+        let mock = MockTaskRepository()
+        let tasks = [makeTask(id: "1", priority: 4), makeTask(id: "2", priority: 1)]
+        mock.fetchTasksResult = TasksResponse(
+            tasks: tasks,
+            meta: TasksMeta(context: "", weeklyLimit: 0, weeklyCount: 0, backlogLimit: 0, backlogCount: 0)
+        )
+        let vm = await TaskListViewModel(repository: mock)
+        await vm.loadTasks()
+
+        await MainActor.run {
+            vm.togglePriorityFilter(4)
+            vm.clearPriorityFilter()
+        }
+        await #expect(vm.displayTasks.count == 2)
+    }
+
+    @Test func filterIncludesParentWhenChildMatches() async {
+        let mock = MockTaskRepository()
+        let child = makeTask(id: "child", priority: 4, parentId: "root")
+        let root = makeTask(id: "root", priority: 1, children: [child])
+        mock.fetchTasksResult = TasksResponse(
+            tasks: [root],
+            meta: TasksMeta(context: "", weeklyLimit: 0, weeklyCount: 0, backlogLimit: 0, backlogCount: 0)
+        )
+        let vm = await TaskListViewModel(repository: mock)
+        await vm.loadTasks()
+
+        await MainActor.run { vm.togglePriorityFilter(4) }
+        await #expect(vm.displayTasks.count == 2)
+    }
+
+    @Test func isFilteringReflectsState() async {
+        let mock = MockTaskRepository()
+        let vm = await TaskListViewModel(repository: mock)
+
+        await #expect(!vm.isFiltering)
+        await MainActor.run { vm.togglePriorityFilter(4) }
+        await #expect(vm.isFiltering)
+    }
+
+    @Test func updateTaskPriorityCallsRepository() async {
+        let mock = MockTaskRepository()
+        let task = makeTask(id: "1", priority: 1)
+        mock.fetchTasksResult = TasksResponse(
+            tasks: [task],
+            meta: TasksMeta(context: "", weeklyLimit: 0, weeklyCount: 0, backlogLimit: 0, backlogCount: 0)
+        )
+        let vm = await TaskListViewModel(repository: mock)
+        await vm.loadTasks()
+
+        await vm.updateTaskPriority(task, priority: 4)
+
+        #expect(mock.updateTaskCalled)
+        #expect(mock.lastUpdateRequest?.priority == 4)
+        await #expect(vm.tasks[0].priority == 4)
+    }
+}
+
 struct FindTaskTests {
     @Test func findTaskFindsRootTask() async {
         let mock = MockTaskRepository()

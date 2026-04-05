@@ -229,21 +229,11 @@ struct TaskDetailView: View {
     }
 
     private func priorityLabel(_ priority: Int) -> String {
-        switch priority {
-        case 4: return "P1 - Urgent"
-        case 3: return "P2 - High"
-        case 2: return "P3 - Medium"
-        default: return "P4 - Low"
-        }
+        Priority(rawPriority: priority).label
     }
 
     private func priorityColor(_ priority: Int) -> Color {
-        switch priority {
-        case 4: return .red
-        case 3: return .orange
-        case 2: return .blue
-        default: return .gray
-        }
+        Priority(rawPriority: priority).color
     }
 }
 

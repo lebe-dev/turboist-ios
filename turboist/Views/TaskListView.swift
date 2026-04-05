@@ -20,6 +20,31 @@ struct TaskListView: View {
         }
         .navigationTitle(viewModel.currentView.rawValue.capitalized)
         .toolbar {
+            if viewModel.currentView == .all {
+                ToolbarItem(placement: .topBarLeading) {
+                    Menu {
+                        ForEach(Priority.allCases.reversed()) { priority in
+                            Button {
+                                viewModel.togglePriorityFilter(priority.rawValue)
+                            } label: {
+                                if viewModel.selectedPriorities.contains(priority.rawValue) {
+                                    Label(priority.label, systemImage: "checkmark")
+                                } else {
+                                    Text(priority.label)
+                                }
+                            }
+                        }
+                        if viewModel.isFiltering {
+                            Divider()
+                            Button("Clear Filters") {
+                                viewModel.clearPriorityFilter()
+                            }
+                        }
+                    } label: {
+                        Image(systemName: viewModel.isFiltering ? "line.3.horizontal.decrease.circle.fill" : "line.3.horizontal.decrease.circle")
+                    }
+                }
+            }
             ToolbarItem(placement: .primaryAction) {
                 Button {
                     subtaskParentId = nil
@@ -99,6 +124,18 @@ struct TaskListView: View {
                     .tint(.green)
                 }
                 .contextMenu {
+                    Menu {
+                        ForEach(Priority.allCases.reversed()) { priority in
+                            Button {
+                                Task { await viewModel.updateTaskPriority(displayTask.task, priority: priority.rawValue) }
+                            } label: {
+                                Label(priority.label, systemImage: displayTask.task.priority == priority.rawValue ? "checkmark" : "flag.fill")
+                            }
+                        }
+                    } label: {
+                        Label("Priority", systemImage: "flag")
+                    }
+
                     Button {
                         subtaskParentId = displayTask.task.id
                         showCreateTask = true

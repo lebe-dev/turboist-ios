@@ -105,12 +105,7 @@ struct TaskRowView: View {
     }
 
     private var priorityColor: Color {
-        switch task.priority {
-        case 4: return .red
-        case 3: return .orange
-        case 2: return .blue
-        default: return .gray
-        }
+        Priority(rawPriority: task.priority).color
     }
 
     private func dueDateColor(_ dateString: String) -> Color {

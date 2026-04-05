@@ -9,9 +9,15 @@ final class TaskListViewModel {
     var error: String?
     var currentView: TaskView = .all
     var collapsedIds: Set<String> = []
+    var selectedPriorities: Set<Int> = []
 
     var displayTasks: [DisplayTask] {
-        flattenForDisplay(tasks, collapsedIds: collapsedIds)
+        let filtered = selectedPriorities.isEmpty ? tasks : filterByPriority(tasks, priorities: selectedPriorities)
+        return flattenForDisplay(filtered, collapsedIds: collapsedIds)
+    }
+
+    var isFiltering: Bool {
+        !selectedPriorities.isEmpty
     }
 
     let repository: TaskRepositoryProtocol
@@ -99,6 +105,39 @@ final class TaskListViewModel {
         }
     }
 
+    @MainActor
+    func updateTaskPriority(_ task: TaskItem, priority: Int) async {
+        updateTaskPriorityLocally(task.id, priority: priority, in: &tasks)
+        let request = UpdateTaskRequest(priority: priority)
+        do {
+            try await repository.updateTask(id: task.id, request)
+        } catch {
+            await loadTasks(view: currentView)
+        }
+    }
+
+    private func updateTaskPriorityLocally(_ taskId: String, priority: Int, in tasks: inout [TaskItem]) {
+        for i in tasks.indices {
+            if tasks[i].id == taskId {
+                tasks[i].priority = priority
+                return
+            }
+            updateTaskPriorityLocally(taskId, priority: priority, in: &tasks[i].children)
+        }
+    }
+
+    func togglePriorityFilter(_ priority: Int) {
+        if selectedPriorities.contains(priority) {
+            selectedPriorities.remove(priority)
+        } else {
+            selectedPriorities.insert(priority)
+        }
+    }
+
+    func clearPriorityFilter() {
+        selectedPriorities.removeAll()
+    }
+
     func findTask(by id: String) -> TaskItem? {
         findTaskRecursive(id: id, in: tasks)
     }
@@ -109,5 +148,17 @@ final class TaskListViewModel {
             if let found = findTaskRecursive(id: id, in: task.children) { return found }
         }
         return nil
+    }
+
+    private func filterByPriority(_ tasks: [TaskItem], priorities: Set<Int>) -> [TaskItem] {
+        tasks.compactMap { task in
+            let filteredChildren = filterByPriority(task.children, priorities: priorities)
+            if priorities.contains(task.priority) || !filteredChildren.isEmpty {
+                var filtered = task
+                filtered.children = filteredChildren
+                return filtered
+            }
+            return nil
+        }
     }
 }
