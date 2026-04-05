@@ -101,7 +101,7 @@ struct TaskDetailView: View {
                     Text(task.content)
                         .font(.headline)
                     if !task.description.isEmpty {
-                        Text(task.description)
+                        MarkdownText(task.description)
                             .font(.body)
                             .foregroundStyle(.secondary)
                     }

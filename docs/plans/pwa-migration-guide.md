@@ -914,8 +914,8 @@ enum ActionType: String, Codable {
 
 ### 7.18. Markdown и ссылки
 
-- [ ] **Рендеринг markdown** в description (bold, italic, strikethrough, code, links)
-- [ ] **Очистка tracking-параметров** из URL: удалить `utm_*`, `gclid`, `fbclid`, `mc_*`, `ref` и т.д.
+- [x] **Рендеринг markdown** в description (bold, italic, strikethrough, code, links)
+- [x] **Очистка tracking-параметров** из URL: удалить `utm_*`, `gclid`, `fbclid`, `mc_*`, `ref` и т.д.
 
 ### 7.19. Прогресс-бары
 

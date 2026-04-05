@@ -2674,3 +2674,100 @@ struct AutoRemovePausedTests {
         #expect(store.autoRemovePaused == false)
     }
 }
+
+// MARK: - URLCleaner Tests
+
+@Suite("URLCleaner")
+struct URLCleanerTests {
+
+    @Test("cleanURL removes utm parameters")
+    func testCleanUTM() {
+        let url = "https://example.com/page?utm_source=google&utm_medium=cpc&id=123"
+        let cleaned = URLCleaner.cleanURL(url)
+        #expect(cleaned == "https://example.com/page?id=123")
+    }
+
+    @Test("cleanURL removes Facebook tracking")
+    func testCleanFacebook() {
+        let url = "https://example.com/?fbclid=abc123"
+        let cleaned = URLCleaner.cleanURL(url)
+        #expect(cleaned == "https://example.com/")
+    }
+
+    @Test("cleanURL removes Google click IDs")
+    func testCleanGoogleClickIds() {
+        let url = "https://example.com/path?gclid=xyz&gclsrc=aw.ds"
+        let cleaned = URLCleaner.cleanURL(url)
+        #expect(cleaned == "https://example.com/path")
+    }
+
+    @Test("cleanURL removes YouTube tracking")
+    func testCleanYouTube() {
+        let url = "https://youtube.com/watch?v=abc123&si=trackingid&feature=share"
+        let cleaned = URLCleaner.cleanURL(url)
+        #expect(cleaned == "https://youtube.com/watch?v=abc123")
+    }
+
+    @Test("cleanURL preserves non-tracking params")
+    func testPreserveNonTracking() {
+        let url = "https://example.com/search?q=swift&page=2"
+        let cleaned = URLCleaner.cleanURL(url)
+        #expect(cleaned == url)
+    }
+
+    @Test("cleanURL handles URL without params")
+    func testNoParams() {
+        let url = "https://example.com/page"
+        let cleaned = URLCleaner.cleanURL(url)
+        #expect(cleaned == url)
+    }
+
+    @Test("cleanURL handles invalid URL gracefully")
+    func testInvalidURL() {
+        let url = "not a url"
+        let cleaned = URLCleaner.cleanURL(url)
+        #expect(cleaned == url)
+    }
+
+    @Test("cleanTrackingParams cleans URLs in text")
+    func testCleanInText() {
+        let text = "Check this https://example.com/page?utm_source=google&id=1 and this https://other.com?fbclid=abc"
+        let cleaned = URLCleaner.cleanTrackingParams(in: text)
+        #expect(cleaned == "Check this https://example.com/page?id=1 and this https://other.com")
+    }
+
+    @Test("cleanTrackingParams handles markdown links")
+    func testCleanMarkdownLinks() {
+        let text = "[Link](https://example.com?utm_source=test&page=1)"
+        let cleaned = URLCleaner.cleanTrackingParams(in: text)
+        #expect(cleaned == "[Link](https://example.com?page=1)")
+    }
+
+    @Test("cleanTrackingParams preserves text without URLs")
+    func testNoURLs() {
+        let text = "Just some plain text without links"
+        let cleaned = URLCleaner.cleanTrackingParams(in: text)
+        #expect(cleaned == text)
+    }
+
+    @Test("cleanURL removes HubSpot tracking")
+    func testCleanHubSpot() {
+        let url = "https://example.com/page?_hsenc=abc&_hsmi=def&content=real"
+        let cleaned = URLCleaner.cleanURL(url)
+        #expect(cleaned == "https://example.com/page?content=real")
+    }
+
+    @Test("cleanURL removes Mailchimp tracking")
+    func testCleanMailchimp() {
+        let url = "https://example.com/?mc_cid=abc&mc_eid=def"
+        let cleaned = URLCleaner.cleanURL(url)
+        #expect(cleaned == "https://example.com/")
+    }
+
+    @Test("cleanURL removes Microsoft and Twitter tracking")
+    func testCleanMicrosoftTwitter() {
+        let url = "https://example.com/page?msclkid=abc&twclid=def&real=param"
+        let cleaned = URLCleaner.cleanURL(url)
+        #expect(cleaned == "https://example.com/page?real=param")
+    }
+}
