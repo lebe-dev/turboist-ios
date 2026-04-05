@@ -15,6 +15,7 @@ struct TaskDetailView: View {
     @State private var showLabelPicker = false
     @State private var editedLabels: [String] = []
     var availableLabels: [TaskLabel] = []
+    var configStore: AppConfigStore?
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
@@ -233,6 +234,15 @@ struct TaskDetailView: View {
 
             // Actions
             Section {
+                if let configStore {
+                    let isPinned = configStore.isTaskPinned(task.id)
+                    Button {
+                        configStore.togglePinTask(task, repository: viewModel.repository)
+                    } label: {
+                        Label(isPinned ? "Unpin Task" : "Pin Task", systemImage: isPinned ? "pin.slash" : "pin")
+                    }
+                }
+
                 Button {
                     showCreateSubtask = true
                 } label: {

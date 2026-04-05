@@ -114,6 +114,48 @@ final class AppConfigStore {
             try? await repository.patchState(PatchStateRequest(activeContextId: newId))
         }
     }
+
+    // MARK: - Pinned Tasks
+
+    var pinnedTasks: [PinnedTask] {
+        config?.state.pinnedTasks ?? []
+    }
+
+    var maxPinned: Int {
+        config?.settings.maxPinned ?? 5
+    }
+
+    func isTaskPinned(_ taskId: String) -> Bool {
+        pinnedTasks.contains { $0.id == taskId }
+    }
+
+    func pinTask(_ task: TaskItem, repository: TaskRepositoryProtocol) {
+        guard !isTaskPinned(task.id) else { return }
+        guard pinnedTasks.count < maxPinned else { return }
+        let pinned = PinnedTask(id: task.id, content: task.content)
+        config?.state.pinnedTasks.append(pinned)
+        let updated = config?.state.pinnedTasks ?? []
+        Task {
+            try? await repository.patchState(PatchStateRequest(pinnedTasks: updated))
+        }
+    }
+
+    func unpinTask(_ taskId: String, repository: TaskRepositoryProtocol) {
+        guard isTaskPinned(taskId) else { return }
+        config?.state.pinnedTasks.removeAll { $0.id == taskId }
+        let updated = config?.state.pinnedTasks ?? []
+        Task {
+            try? await repository.patchState(PatchStateRequest(pinnedTasks: updated))
+        }
+    }
+
+    func togglePinTask(_ task: TaskItem, repository: TaskRepositoryProtocol) {
+        if isTaskPinned(task.id) {
+            unpinTask(task.id, repository: repository)
+        } else {
+            pinTask(task, repository: repository)
+        }
+    }
 }
 
 extension Color {

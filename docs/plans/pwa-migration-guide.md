@@ -868,11 +868,11 @@ enum ActionType: String, Codable {
 
 ### 7.11. Закреплённые задачи (Pinned Tasks)
 
-- [ ] **Pin/unpin задачи** — через контекстное меню или детальный просмотр
-- [ ] **Максимум** `max_pinned` (обычно 5)
-- [ ] **Отображение** в навигации (sidebar / quick access)
-- [ ] **Tap на pinned** → навигация к задаче
-- [ ] **Персистенция** через `PATCH /api/state { pinnedTasks }`
+- [x] **Pin/unpin задачи** — через контекстное меню или детальный просмотр
+- [x] **Максимум** `max_pinned` (обычно 5)
+- [x] **Отображение** в навигации (sidebar / quick access)
+- [x] **Tap на pinned** → навигация к задаче
+- [x] **Персистенция** через `PATCH /api/state { pinnedTasks }`
 
 ### 7.12. Поиск
 

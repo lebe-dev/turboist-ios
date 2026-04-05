@@ -7,6 +7,7 @@ struct ContentView: View {
     @State private var planningViewModel: PlanningViewModel
     @State private var configStore = AppConfigStore()
     @State private var showPlanning = false
+    @State private var navigationPath = NavigationPath()
 
     init() {
         let client = APIClient(baseURL: "http://localhost:8080")
@@ -18,8 +19,18 @@ struct ContentView: View {
     }
 
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: $navigationPath) {
             VStack(spacing: 0) {
+                PinnedTasksView(
+                    pinnedTasks: configStore.pinnedTasks,
+                    onTapTask: { taskId in
+                        navigateToPinnedTask(taskId)
+                    },
+                    onUnpin: { taskId in
+                        configStore.unpinTask(taskId, repository: taskListViewModel.repository)
+                    }
+                )
+
                 ViewSwitcherView(
                     currentView: taskListViewModel.currentView
                 ) { newView in
@@ -37,7 +48,7 @@ struct ContentView: View {
                     let vm = taskDetailViewModel
                     vm.setTask(task)
                     return vm
-                }(), availableLabels: configStore.labels)
+                }(), availableLabels: configStore.labels, configStore: configStore)
             }
             .navigationDestination(for: String.self) { parentId in
                 TaskDetailView(viewModel: {
@@ -46,7 +57,7 @@ struct ContentView: View {
                         vm.setTask(parentTask)
                     }
                     return vm
-                }(), availableLabels: configStore.labels)
+                }(), availableLabels: configStore.labels, configStore: configStore)
             }
         }
         .toolbar {
@@ -109,6 +120,14 @@ struct ContentView: View {
 
     private func closePlanning() {
         showPlanning = false
+    }
+
+    private func navigateToPinnedTask(_ taskId: String) {
+        if let task = taskListViewModel.findTask(by: taskId) {
+            navigationPath.append(task)
+        } else {
+            navigationPath.append(taskId)
+        }
     }
 
     private func onDismissPlanning() {

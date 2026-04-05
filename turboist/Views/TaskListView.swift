@@ -271,6 +271,15 @@ struct TaskListView: View {
                 Label("Due Date", systemImage: "calendar")
             }
 
+            if let configStore {
+                let isPinned = configStore.isTaskPinned(displayTask.task.id)
+                Button {
+                    configStore.togglePinTask(displayTask.task, repository: viewModel.repository)
+                } label: {
+                    Label(isPinned ? "Unpin" : "Pin", systemImage: isPinned ? "pin.slash" : "pin")
+                }
+            }
+
             Button {
                 subtaskParentId = displayTask.task.id
                 showCreateTask = true

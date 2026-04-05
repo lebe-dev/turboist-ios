@@ -1877,3 +1877,152 @@ struct PlanningViewModelTests {
         #expect(!vm.isAtLimit)
     }
 }
+
+// MARK: - Pinned Tasks Tests
+
+@Suite struct PinnedTasksTests {
+    private func makePinnedConfig(pinnedTasks: [PinnedTask] = [], maxPinned: Int = 5) -> AppConfig {
+        AppConfig(
+            settings: AppSettings(
+                pollInterval: 30, syncInterval: 10, timezone: "UTC",
+                weeklyLabel: "weekly", backlogLabel: "backlog",
+                projectLabel: "project", projectsLabel: "projects",
+                weeklyLimit: 20, backlogLimit: 50, completedDays: 7,
+                maxPinned: maxPinned, lastSyncedAt: nil, dayParts: [],
+                maxDayPartNoteLength: 200, inboxProjectId: "inbox",
+                inboxLimit: 50, inboxOverflowTaskContent: "Too many tasks"
+            ),
+            contexts: [],
+            projects: [],
+            labels: [],
+            labelConfigs: [],
+            autoLabels: [],
+            quickCapture: nil,
+            projectTasks: [],
+            labelProjectMap: [],
+            autoRemove: AutoRemoveStatus(rules: [], paused: false),
+            state: UserState(
+                pinnedTasks: pinnedTasks, activeContextId: "",
+                activeView: "all", collapsedIds: [],
+                sidebarCollapsed: false, planningOpen: false,
+                dayPartNotes: [:], locale: "en", allFilters: nil
+            )
+        )
+    }
+
+    @Test func pinTaskAddsToList() async {
+        let store = AppConfigStore()
+        store.setConfig(makePinnedConfig())
+        let repo = MockTaskRepository()
+        let task = makeTask(id: "t1", content: "Important task")
+
+        store.pinTask(task, repository: repo)
+
+        #expect(store.pinnedTasks.count == 1)
+        #expect(store.pinnedTasks[0].id == "t1")
+        #expect(store.pinnedTasks[0].content == "Important task")
+        try? await Task.sleep(for: .milliseconds(100))
+        #expect(repo.patchStateCalled)
+        #expect(repo.lastPatchStateRequest?.pinnedTasks?.count == 1)
+    }
+
+    @Test func unpinTaskRemovesFromList() async {
+        let store = AppConfigStore()
+        store.setConfig(makePinnedConfig(pinnedTasks: [
+            PinnedTask(id: "t1", content: "Task 1"),
+            PinnedTask(id: "t2", content: "Task 2")
+        ]))
+        let repo = MockTaskRepository()
+
+        store.unpinTask("t1", repository: repo)
+
+        #expect(store.pinnedTasks.count == 1)
+        #expect(store.pinnedTasks[0].id == "t2")
+        try? await Task.sleep(for: .milliseconds(100))
+        #expect(repo.patchStateCalled)
+    }
+
+    @Test func pinTaskRespectsMaxPinnedLimit() {
+        let store = AppConfigStore()
+        store.setConfig(makePinnedConfig(
+            pinnedTasks: [
+                PinnedTask(id: "t1", content: "Task 1"),
+                PinnedTask(id: "t2", content: "Task 2")
+            ],
+            maxPinned: 2
+        ))
+        let repo = MockTaskRepository()
+        let task = makeTask(id: "t3", content: "Task 3")
+
+        store.pinTask(task, repository: repo)
+
+        #expect(store.pinnedTasks.count == 2)
+        #expect(!store.isTaskPinned("t3"))
+        #expect(!repo.patchStateCalled)
+    }
+
+    @Test func pinTaskIgnoresDuplicate() {
+        let store = AppConfigStore()
+        store.setConfig(makePinnedConfig(pinnedTasks: [
+            PinnedTask(id: "t1", content: "Task 1")
+        ]))
+        let repo = MockTaskRepository()
+        let task = makeTask(id: "t1", content: "Task 1")
+
+        store.pinTask(task, repository: repo)
+
+        #expect(store.pinnedTasks.count == 1)
+        #expect(!repo.patchStateCalled)
+    }
+
+    @Test func isTaskPinnedReturnsTrueForPinned() {
+        let store = AppConfigStore()
+        store.setConfig(makePinnedConfig(pinnedTasks: [
+            PinnedTask(id: "t1", content: "Task 1")
+        ]))
+
+        #expect(store.isTaskPinned("t1"))
+        #expect(!store.isTaskPinned("t2"))
+    }
+
+    @Test func togglePinTaskPinsUnpinnedTask() {
+        let store = AppConfigStore()
+        store.setConfig(makePinnedConfig())
+        let repo = MockTaskRepository()
+        let task = makeTask(id: "t1", content: "Task 1")
+
+        store.togglePinTask(task, repository: repo)
+
+        #expect(store.isTaskPinned("t1"))
+    }
+
+    @Test func togglePinTaskUnpinsPinnedTask() {
+        let store = AppConfigStore()
+        store.setConfig(makePinnedConfig(pinnedTasks: [
+            PinnedTask(id: "t1", content: "Task 1")
+        ]))
+        let repo = MockTaskRepository()
+        let task = makeTask(id: "t1", content: "Task 1")
+
+        store.togglePinTask(task, repository: repo)
+
+        #expect(!store.isTaskPinned("t1"))
+    }
+
+    @Test func unpinNonExistentTaskIsNoOp() {
+        let store = AppConfigStore()
+        store.setConfig(makePinnedConfig())
+        let repo = MockTaskRepository()
+
+        store.unpinTask("nonexistent", repository: repo)
+
+        #expect(!repo.patchStateCalled)
+    }
+
+    @Test func maxPinnedDefaultsToFive() {
+        let store = AppConfigStore()
+        store.setConfig(makePinnedConfig())
+
+        #expect(store.maxPinned == 5)
+    }
+}
