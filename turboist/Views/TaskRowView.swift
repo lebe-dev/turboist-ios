@@ -2,10 +2,43 @@ import SwiftUI
 
 struct TaskRowView: View {
     let task: TaskItem
+    let depth: Int
+    let hasChildren: Bool
+    let isCollapsed: Bool
     let onComplete: () -> Void
+    let onToggleCollapse: (() -> Void)?
+
+    init(task: TaskItem, depth: Int = 0, hasChildren: Bool = false, isCollapsed: Bool = false,
+         onComplete: @escaping () -> Void, onToggleCollapse: (() -> Void)? = nil) {
+        self.task = task
+        self.depth = depth
+        self.hasChildren = hasChildren
+        self.isCollapsed = isCollapsed
+        self.onComplete = onComplete
+        self.onToggleCollapse = onToggleCollapse
+    }
 
     var body: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: 8) {
+            if depth > 0 {
+                Spacer()
+                    .frame(width: CGFloat(depth) * 20)
+            }
+
+            if hasChildren {
+                Button {
+                    onToggleCollapse?()
+                } label: {
+                    Image(systemName: isCollapsed ? "chevron.right" : "chevron.down")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .frame(width: 16, height: 16)
+                }
+                .buttonStyle(.plain)
+            } else if depth > 0 {
+                Spacer().frame(width: 16)
+            }
+
             Button(action: onComplete) {
                 Image(systemName: "circle")
                     .foregroundStyle(priorityColor)
@@ -38,9 +71,7 @@ struct TaskRowView: View {
                     }
 
                     if task.subTaskCount > 0 {
-                        Label("\(task.completedSubTaskCount)/\(task.subTaskCount)", systemImage: "checklist")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
+                        subtaskProgress
                     }
                 }
             }
@@ -48,6 +79,29 @@ struct TaskRowView: View {
             Spacer()
         }
         .contentShape(Rectangle())
+    }
+
+    @ViewBuilder
+    private var subtaskProgress: some View {
+        let completed = task.completedSubTaskCount
+        let total = task.subTaskCount
+        let fraction = Double(completed) / Double(total)
+
+        HStack(spacing: 4) {
+            Label("\(completed)/\(total)", systemImage: "checklist")
+                .font(.caption)
+                .foregroundStyle(progressColor(fraction))
+
+            ProgressView(value: fraction)
+                .frame(width: 30)
+                .tint(progressColor(fraction))
+        }
+    }
+
+    private func progressColor(_ fraction: Double) -> Color {
+        if fraction >= 1.0 { return .green }
+        if fraction >= 0.5 { return .blue }
+        return .secondary
     }
 
     private var priorityColor: Color {

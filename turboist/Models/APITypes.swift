@@ -36,6 +36,10 @@ struct LoginRequest: Codable {
     let password: String
 }
 
+struct PatchStateRequest: Codable {
+    var collapsedIds: [String]?
+}
+
 // MARK: - Response types
 
 struct TasksResponse: Codable {

@@ -9,6 +9,7 @@ struct TaskDetailView: View {
     @State private var isEditing = false
     @State private var showDecompose = false
     @State private var showCompletedSubtasks = false
+    @State private var showCreateSubtask = false
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
@@ -40,11 +41,27 @@ struct TaskDetailView: View {
                 dismiss()
             }
         }
+        .sheet(isPresented: $showCreateSubtask) {
+            if let task = viewModel.task {
+                CreateTaskView(repository: viewModel.repository, parentId: task.id) {
+                    // Reload to show new subtask
+                }
+            }
+        }
     }
 
     @ViewBuilder
     private func taskContent(_ task: TaskItem) -> some View {
         List {
+            // Parent task navigation
+            if let parentId = task.parentId {
+                Section {
+                    NavigationLink(value: parentId) {
+                        Label("Go to Parent Task", systemImage: "arrow.up.square")
+                    }
+                }
+            }
+
             Section("Content") {
                 if isEditing {
                     TextField("Title", text: $editedContent)
@@ -114,12 +131,26 @@ struct TaskDetailView: View {
             if !task.children.isEmpty {
                 Section("Subtasks (\(task.completedSubTaskCount)/\(task.subTaskCount))") {
                     ForEach(task.children) { child in
-                        HStack {
-                            Image(systemName: "circle")
-                                .foregroundStyle(priorityColor(child.priority))
-                            Text(child.content)
+                        NavigationLink(value: child) {
+                            HStack {
+                                Image(systemName: "circle")
+                                    .foregroundStyle(priorityColor(child.priority))
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(child.content)
+                                    if child.subTaskCount > 0 {
+                                        Text("\(child.completedSubTaskCount)/\(child.subTaskCount) subtasks")
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                    }
+                                }
+                            }
                         }
                     }
+                }
+            } else if task.subTaskCount > 0 {
+                Section("Subtasks (\(task.completedSubTaskCount)/\(task.subTaskCount))") {
+                    ProgressView(value: Double(task.completedSubTaskCount), total: Double(task.subTaskCount))
+                        .tint(task.completedSubTaskCount == task.subTaskCount ? .green : .blue)
                 }
             }
 
@@ -152,6 +183,12 @@ struct TaskDetailView: View {
 
             // Actions
             Section {
+                Button {
+                    showCreateSubtask = true
+                } label: {
+                    Label("Add Subtask", systemImage: "plus.square")
+                }
+
                 Button {
                     showDecompose = true
                 } label: {

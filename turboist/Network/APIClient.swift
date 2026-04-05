@@ -97,6 +97,12 @@ final class APIClient {
         try await get("/api/tasks/\(id)/completed-subtasks")
     }
 
+    // MARK: - State
+
+    func patchState(_ request: PatchStateRequest) async throws -> OkResponse {
+        try await patch("/api/state", body: request)
+    }
+
     // MARK: - Generic HTTP methods
 
     private func get<T: Decodable>(_ path: String, queryParams: [String: String] = [:]) async throws -> T {

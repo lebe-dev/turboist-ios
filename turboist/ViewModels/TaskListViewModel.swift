@@ -8,11 +8,34 @@ final class TaskListViewModel {
     var isLoading = false
     var error: String?
     var currentView: TaskView = .all
+    var collapsedIds: Set<String> = []
+
+    var displayTasks: [DisplayTask] {
+        flattenForDisplay(tasks, collapsedIds: collapsedIds)
+    }
 
     let repository: TaskRepositoryProtocol
 
     init(repository: TaskRepositoryProtocol) {
         self.repository = repository
+    }
+
+    func setCollapsedIds(_ ids: [String]) {
+        collapsedIds = Set(ids)
+    }
+
+    @MainActor
+    func toggleCollapsed(_ taskId: String) async {
+        if collapsedIds.contains(taskId) {
+            collapsedIds.remove(taskId)
+        } else {
+            collapsedIds.insert(taskId)
+        }
+        do {
+            try await repository.patchState(PatchStateRequest(collapsedIds: Array(collapsedIds)))
+        } catch {
+            // State sync failure is non-critical, keep local state
+        }
     }
 
     @MainActor
@@ -34,19 +57,16 @@ final class TaskListViewModel {
 
     @MainActor
     func completeTask(_ task: TaskItem) async {
-        // Optimistic removal
         tasks.removeAll { $0.id == task.id }
         do {
             try await repository.completeTask(id: task.id)
         } catch {
-            // Revert on failure - reload
             await loadTasks(view: currentView)
         }
     }
 
     @MainActor
     func deleteTask(_ task: TaskItem) async {
-        // Optimistic removal
         tasks.removeAll { $0.id == task.id }
         do {
             try await repository.deleteTask(id: task.id)
@@ -77,5 +97,17 @@ final class TaskListViewModel {
         } catch {
             self.error = error.localizedDescription
         }
+    }
+
+    func findTask(by id: String) -> TaskItem? {
+        findTaskRecursive(id: id, in: tasks)
+    }
+
+    private func findTaskRecursive(id: String, in tasks: [TaskItem]) -> TaskItem? {
+        for task in tasks {
+            if task.id == id { return task }
+            if let found = findTaskRecursive(id: id, in: task.children) { return found }
+        }
+        return nil
     }
 }

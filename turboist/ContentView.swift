@@ -23,8 +23,25 @@ struct ContentView: View {
                         return vm
                     }())
                 }
+                .navigationDestination(for: String.self) { parentId in
+                    // Navigate to parent task by ID
+                    TaskDetailView(viewModel: {
+                        let vm = taskDetailViewModel
+                        if let parentTask = taskListViewModel.findTask(by: parentId) {
+                            vm.setTask(parentTask)
+                        }
+                        return vm
+                    }())
+                }
         }
         .task {
+            // Load config to get collapsed_ids
+            do {
+                let config = try await apiClient.fetchConfig()
+                taskListViewModel.setCollapsedIds(config.state.collapsedIds)
+            } catch {
+                // Non-critical, proceed without persisted state
+            }
             await taskListViewModel.loadTasks()
         }
     }

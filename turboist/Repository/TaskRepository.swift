@@ -10,6 +10,7 @@ protocol TaskRepositoryProtocol {
     func decomposeTask(id: String, subtasks: [String]) async throws
     func moveTask(id: String, parentId: String) async throws
     func fetchCompletedSubtasks(id: String) async throws -> [TaskItem]
+    func patchState(_ request: PatchStateRequest) async throws
 }
 
 final class TaskRepository: TaskRepositoryProtocol {
@@ -54,5 +55,9 @@ final class TaskRepository: TaskRepositoryProtocol {
     func fetchCompletedSubtasks(id: String) async throws -> [TaskItem] {
         let response = try await apiClient.fetchCompletedSubtasks(id: id)
         return response.tasks
+    }
+
+    func patchState(_ request: PatchStateRequest) async throws {
+        let _: OkResponse = try await apiClient.patchState(request)
     }
 }

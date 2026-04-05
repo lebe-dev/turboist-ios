@@ -76,6 +76,26 @@ func flattenTasks(_ tasks: [TaskItem]) -> [FlatTask] {
     return result
 }
 
+struct DisplayTask: Identifiable {
+    let task: TaskItem
+    let depth: Int
+    let hasChildren: Bool
+
+    var id: String { task.id }
+}
+
+func flattenForDisplay(_ tasks: [TaskItem], collapsedIds: Set<String>, depth: Int = 0) -> [DisplayTask] {
+    var result: [DisplayTask] = []
+    for task in tasks {
+        let hasChildren = !task.children.isEmpty || task.subTaskCount > 0
+        result.append(DisplayTask(task: task, depth: depth, hasChildren: hasChildren))
+        if !task.children.isEmpty && !collapsedIds.contains(task.id) {
+            result.append(contentsOf: flattenForDisplay(task.children, collapsedIds: collapsedIds, depth: depth + 1))
+        }
+    }
+    return result
+}
+
 func buildTree(from flats: [FlatTask]) -> [TaskItem] {
     var childrenMap: [String: [FlatTask]] = [:]
     var roots: [FlatTask] = []

@@ -8,7 +8,7 @@ final class TaskDetailViewModel {
     var isSaving = false
     var error: String?
 
-    private let repository: TaskRepositoryProtocol
+    let repository: TaskRepositoryProtocol
 
     init(repository: TaskRepositoryProtocol) {
         self.repository = repository

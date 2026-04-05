@@ -26,6 +26,8 @@ final class MockTaskRepository: TaskRepositoryProtocol {
     var lastDecomposeSubtasks: [String]?
     var lastMoveId: String?
     var lastMoveParentId: String?
+    var patchStateCalled = false
+    var lastPatchStateRequest: PatchStateRequest?
 
     func fetchTasks(view: TaskView, context: String?) async throws -> TasksResponse {
         if let error = fetchTasksError { throw error }
@@ -73,6 +75,11 @@ final class MockTaskRepository: TaskRepositoryProtocol {
 
     func fetchCompletedSubtasks(id: String) async throws -> [TaskItem] {
         completedSubtasksResult
+    }
+
+    func patchState(_ request: PatchStateRequest) async throws {
+        patchStateCalled = true
+        lastPatchStateRequest = request
     }
 }
 
@@ -342,5 +349,178 @@ struct TaskDetailViewModelTests {
 
         await #expect(vm.completedSubtasks.count == 1)
         await #expect(vm.completedSubtasks[0].content == "Done")
+    }
+}
+
+// MARK: - Subtask feature tests
+
+struct DisplayTaskFlatteningTests {
+    @Test func flattenForDisplayProducesCorrectDepths() {
+        let grandchild = makeTask(id: "gc-1", content: "Grandchild", parentId: "child-1")
+        let child = makeTask(id: "child-1", content: "Child", parentId: "root-1", children: [grandchild])
+        let root = makeTask(id: "root-1", content: "Root", children: [child])
+
+        let display = flattenForDisplay([root], collapsedIds: [])
+
+        #expect(display.count == 3)
+        #expect(display[0].depth == 0)
+        #expect(display[0].task.id == "root-1")
+        #expect(display[0].hasChildren)
+        #expect(display[1].depth == 1)
+        #expect(display[1].task.id == "child-1")
+        #expect(display[1].hasChildren)
+        #expect(display[2].depth == 2)
+        #expect(display[2].task.id == "gc-1")
+        #expect(!display[2].hasChildren)
+    }
+
+    @Test func flattenForDisplayRespectsCollapsedIds() {
+        let child = makeTask(id: "child-1", content: "Child", parentId: "root-1")
+        let root = makeTask(id: "root-1", content: "Root", children: [child])
+
+        let display = flattenForDisplay([root], collapsedIds: ["root-1"])
+
+        #expect(display.count == 1)
+        #expect(display[0].task.id == "root-1")
+        #expect(display[0].hasChildren)
+    }
+
+    @Test func flattenForDisplayHandlesMultipleRoots() {
+        let child1 = makeTask(id: "c1", content: "C1", parentId: "r1")
+        let root1 = makeTask(id: "r1", content: "R1", children: [child1])
+        let root2 = makeTask(id: "r2", content: "R2")
+
+        let display = flattenForDisplay([root1, root2], collapsedIds: [])
+
+        #expect(display.count == 3)
+        #expect(display[0].task.id == "r1")
+        #expect(display[1].task.id == "c1")
+        #expect(display[2].task.id == "r2")
+    }
+
+    @Test func flattenForDisplayCollapseOnlyAffectsChildren() {
+        let child1 = makeTask(id: "c1", content: "C1", parentId: "r1")
+        let root1 = makeTask(id: "r1", content: "R1", children: [child1])
+        let child2 = makeTask(id: "c2", content: "C2", parentId: "r2")
+        let root2 = makeTask(id: "r2", content: "R2", children: [child2])
+
+        let display = flattenForDisplay([root1, root2], collapsedIds: ["r1"])
+
+        #expect(display.count == 3)
+        #expect(display[0].task.id == "r1")
+        #expect(display[1].task.id == "r2")
+        #expect(display[2].task.id == "c2")
+    }
+
+    @Test func hasChildrenTrueWhenSubTaskCountPositive() {
+        let task = TaskItem(
+            id: "t1", content: "Task", description: "", projectId: "p1",
+            sectionId: nil, parentId: nil, labels: [], priority: 1, due: nil,
+            subTaskCount: 3, completedSubTaskCount: 1, completedAt: nil,
+            addedAt: "2026-01-01", isProjectTask: false, postponeCount: 0,
+            expiresAt: nil, children: []
+        )
+        let display = flattenForDisplay([task], collapsedIds: [])
+
+        #expect(display[0].hasChildren)
+    }
+}
+
+struct CollapsedIdsTests {
+    @Test func toggleCollapsedAddsId() async {
+        let mock = MockTaskRepository()
+        let vm = await TaskListViewModel(repository: mock)
+
+        await vm.toggleCollapsed("task-1")
+
+        await #expect(vm.collapsedIds.contains("task-1"))
+        #expect(mock.patchStateCalled)
+        #expect(mock.lastPatchStateRequest?.collapsedIds?.contains("task-1") == true)
+    }
+
+    @Test func toggleCollapsedRemovesId() async {
+        let mock = MockTaskRepository()
+        let vm = await TaskListViewModel(repository: mock)
+        await MainActor.run { vm.collapsedIds = ["task-1"] }
+
+        await vm.toggleCollapsed("task-1")
+
+        await #expect(!vm.collapsedIds.contains("task-1"))
+        #expect(mock.patchStateCalled)
+    }
+
+    @Test func setCollapsedIdsInitializesFromConfig() async {
+        let mock = MockTaskRepository()
+        let vm = await TaskListViewModel(repository: mock)
+
+        await MainActor.run { vm.setCollapsedIds(["a", "b", "c"]) }
+
+        await #expect(vm.collapsedIds == Set(["a", "b", "c"]))
+    }
+
+    @Test func displayTasksReflectsCollapseState() async {
+        let mock = MockTaskRepository()
+        let child = makeTask(id: "child-1", content: "Child", parentId: "root-1")
+        let root = makeTask(id: "root-1", content: "Root", children: [child])
+        mock.fetchTasksResult = TasksResponse(
+            tasks: [root],
+            meta: TasksMeta(context: "", weeklyLimit: 0, weeklyCount: 0, backlogLimit: 0, backlogCount: 0)
+        )
+        let vm = await TaskListViewModel(repository: mock)
+        await vm.loadTasks()
+
+        // Expanded: should show both
+        await #expect(vm.displayTasks.count == 2)
+
+        // Collapse root
+        await vm.toggleCollapsed("root-1")
+
+        // Should show only root
+        await #expect(vm.displayTasks.count == 1)
+        await #expect(vm.displayTasks[0].task.id == "root-1")
+    }
+}
+
+struct FindTaskTests {
+    @Test func findTaskFindsRootTask() async {
+        let mock = MockTaskRepository()
+        let task = makeTask(id: "t1", content: "Found")
+        mock.fetchTasksResult = TasksResponse(
+            tasks: [task],
+            meta: TasksMeta(context: "", weeklyLimit: 0, weeklyCount: 0, backlogLimit: 0, backlogCount: 0)
+        )
+        let vm = await TaskListViewModel(repository: mock)
+        await vm.loadTasks()
+
+        let found = await vm.findTask(by: "t1")
+        #expect(found?.content == "Found")
+    }
+
+    @Test func findTaskFindsNestedChild() async {
+        let mock = MockTaskRepository()
+        let child = makeTask(id: "c1", content: "Nested", parentId: "r1")
+        let root = makeTask(id: "r1", content: "Root", children: [child])
+        mock.fetchTasksResult = TasksResponse(
+            tasks: [root],
+            meta: TasksMeta(context: "", weeklyLimit: 0, weeklyCount: 0, backlogLimit: 0, backlogCount: 0)
+        )
+        let vm = await TaskListViewModel(repository: mock)
+        await vm.loadTasks()
+
+        let found = await vm.findTask(by: "c1")
+        #expect(found?.content == "Nested")
+    }
+
+    @Test func findTaskReturnsNilWhenNotFound() async {
+        let mock = MockTaskRepository()
+        mock.fetchTasksResult = TasksResponse(
+            tasks: [],
+            meta: TasksMeta(context: "", weeklyLimit: 0, weeklyCount: 0, backlogLimit: 0, backlogCount: 0)
+        )
+        let vm = await TaskListViewModel(repository: mock)
+        await vm.loadTasks()
+
+        let found = await vm.findTask(by: "nonexistent")
+        #expect(found == nil)
     }
 }

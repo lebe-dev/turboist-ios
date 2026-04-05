@@ -6,6 +6,7 @@ struct TaskListView: View {
     @State private var taskToDelete: TaskItem?
     @State private var taskToMove: TaskItem?
     @State private var moveParentId = ""
+    @State private var subtaskParentId: String?
 
     var body: some View {
         Group {
@@ -21,6 +22,7 @@ struct TaskListView: View {
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
                 Button {
+                    subtaskParentId = nil
                     showCreateTask = true
                 } label: {
                     Image(systemName: "plus")
@@ -28,7 +30,7 @@ struct TaskListView: View {
             }
         }
         .sheet(isPresented: $showCreateTask) {
-            CreateTaskView(repository: viewModel.repository) {
+            CreateTaskView(repository: viewModel.repository, parentId: subtaskParentId) {
                 Task { await viewModel.loadTasks(view: viewModel.currentView) }
             }
         }
@@ -66,22 +68,31 @@ struct TaskListView: View {
 
     private var taskList: some View {
         List {
-            ForEach(viewModel.tasks) { task in
-                NavigationLink(value: task) {
-                    TaskRowView(task: task) {
-                        Task { await viewModel.completeTask(task) }
-                    }
+            ForEach(viewModel.displayTasks) { displayTask in
+                NavigationLink(value: displayTask.task) {
+                    TaskRowView(
+                        task: displayTask.task,
+                        depth: displayTask.depth,
+                        hasChildren: displayTask.hasChildren,
+                        isCollapsed: viewModel.collapsedIds.contains(displayTask.task.id),
+                        onComplete: {
+                            Task { await viewModel.completeTask(displayTask.task) }
+                        },
+                        onToggleCollapse: {
+                            Task { await viewModel.toggleCollapsed(displayTask.task.id) }
+                        }
+                    )
                 }
                 .swipeActions(edge: .trailing) {
                     Button(role: .destructive) {
-                        taskToDelete = task
+                        taskToDelete = displayTask.task
                     } label: {
                         Label("Delete", systemImage: "trash")
                     }
                 }
                 .swipeActions(edge: .leading) {
                     Button {
-                        Task { await viewModel.completeTask(task) }
+                        Task { await viewModel.completeTask(displayTask.task) }
                     } label: {
                         Label("Complete", systemImage: "checkmark")
                     }
@@ -89,17 +100,23 @@ struct TaskListView: View {
                 }
                 .contextMenu {
                     Button {
-                        Task { await viewModel.duplicateTask(task) }
+                        subtaskParentId = displayTask.task.id
+                        showCreateTask = true
+                    } label: {
+                        Label("Add Subtask", systemImage: "plus.square")
+                    }
+                    Button {
+                        Task { await viewModel.duplicateTask(displayTask.task) }
                     } label: {
                         Label("Duplicate", systemImage: "doc.on.doc")
                     }
                     Button {
-                        taskToMove = task
+                        taskToMove = displayTask.task
                     } label: {
                         Label("Move", systemImage: "arrow.right")
                     }
                     Button(role: .destructive) {
-                        taskToDelete = task
+                        taskToDelete = displayTask.task
                     } label: {
                         Label("Delete", systemImage: "trash")
                     }
