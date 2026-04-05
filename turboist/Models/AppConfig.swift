@@ -81,6 +81,30 @@ struct TasksMeta: Codable {
 
 enum TaskView: String, Codable, CaseIterable {
     case all, inbox, today, tomorrow, weekly, backlog, completed
+
+    var displayName: String {
+        switch self {
+        case .all: return "All Tasks"
+        case .inbox: return "Inbox"
+        case .today: return "Today"
+        case .tomorrow: return "Tomorrow"
+        case .weekly: return "Weekly"
+        case .backlog: return "Backlog"
+        case .completed: return "Completed"
+        }
+    }
+
+    var icon: String {
+        switch self {
+        case .all: return "list.bullet"
+        case .inbox: return "tray"
+        case .today: return "sun.max"
+        case .tomorrow: return "sun.horizon"
+        case .weekly: return "calendar.badge.clock"
+        case .backlog: return "archivebox"
+        case .completed: return "checkmark.circle"
+        }
+    }
 }
 
 struct PinnedTask: Codable, Identifiable {

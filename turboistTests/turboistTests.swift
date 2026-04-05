@@ -1394,3 +1394,113 @@ struct ContextTests {
         #expect(json?["collapsed_ids"] == nil)
     }
 }
+
+// MARK: - View Switching Tests
+
+@Suite("View switching")
+struct ViewSwitchingTests {
+    @Test func loadTasksWithSpecificView() async {
+        let repo = MockTaskRepository()
+        repo.fetchTasksResult = TasksResponse(
+            tasks: [makeTask(id: "t1", content: "Weekly task")],
+            meta: TasksMeta(context: "", weeklyLimit: 20, weeklyCount: 5, backlogLimit: 50, backlogCount: 10)
+        )
+        let vm = TaskListViewModel(repository: repo)
+        await vm.loadTasks(view: .weekly)
+
+        #expect(vm.currentView == .weekly)
+        #expect(repo.lastFetchView == .weekly)
+        #expect(vm.tasks.count == 1)
+    }
+
+    @Test func switchViewClearsPriorityFilters() async {
+        let repo = MockTaskRepository()
+        let vm = TaskListViewModel(repository: repo)
+        vm.selectedPriorities = [3, 4]
+
+        await vm.loadTasks(view: .today)
+
+        #expect(vm.currentView == .today)
+        // Priority filters are cleared by the caller (ContentView.switchView),
+        // but loadTasks itself updates the currentView
+    }
+
+    @Test func configStoreActiveViewDefault() {
+        let store = AppConfigStore()
+        #expect(store.activeView == .all)
+    }
+
+    @Test func configStoreActiveViewFromConfig() {
+        let store = AppConfigStore()
+        var config = makeConfig(contexts: [])
+        config.state.activeView = "weekly"
+        store.setConfig(config)
+
+        #expect(store.activeView == .weekly)
+    }
+
+    @Test func configStoreSetActiveViewPersists() async {
+        let store = AppConfigStore()
+        let repo = MockTaskRepository()
+        let config = makeConfig(contexts: [])
+        store.setConfig(config)
+
+        store.setActiveView(.today, repository: repo)
+
+        #expect(store.activeView == .today)
+        try? await Task.sleep(for: .milliseconds(100))
+        #expect(repo.patchStateCalled)
+        #expect(repo.lastPatchStateRequest?.activeView == "today")
+    }
+
+    @Test func configStoreSetActiveViewIgnoresSameView() async {
+        let store = AppConfigStore()
+        let repo = MockTaskRepository()
+        let config = makeConfig(contexts: [])
+        store.setConfig(config)
+
+        store.setActiveView(.all, repository: repo)
+
+        try? await Task.sleep(for: .milliseconds(100))
+        #expect(!repo.patchStateCalled)
+    }
+
+    @Test func patchStateRequestEncodesActiveView() throws {
+        let request = PatchStateRequest(activeView: "weekly")
+        let encoder = JSONEncoder()
+        encoder.keyEncodingStrategy = .convertToSnakeCase
+        let data = try encoder.encode(request)
+        let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+        #expect(json?["active_view"] as? String == "weekly")
+    }
+
+    @Test func taskViewDisplayNames() {
+        #expect(TaskView.all.displayName == "All Tasks")
+        #expect(TaskView.inbox.displayName == "Inbox")
+        #expect(TaskView.today.displayName == "Today")
+        #expect(TaskView.tomorrow.displayName == "Tomorrow")
+        #expect(TaskView.weekly.displayName == "Weekly")
+        #expect(TaskView.backlog.displayName == "Backlog")
+        #expect(TaskView.completed.displayName == "Completed")
+    }
+
+    @Test func taskViewIcons() {
+        #expect(TaskView.all.icon == "list.bullet")
+        #expect(TaskView.inbox.icon == "tray")
+        #expect(TaskView.today.icon == "sun.max")
+    }
+
+    @Test func metaAvailableAfterLoad() async {
+        let repo = MockTaskRepository()
+        repo.fetchTasksResult = TasksResponse(
+            tasks: [],
+            meta: TasksMeta(context: "", weeklyLimit: 20, weeklyCount: 8, backlogLimit: 50, backlogCount: 15, inboxCount: 55)
+        )
+        let vm = TaskListViewModel(repository: repo)
+        await vm.loadTasks(view: .weekly)
+
+        #expect(vm.meta?.weeklyCount == 8)
+        #expect(vm.meta?.weeklyLimit == 20)
+        #expect(vm.meta?.inboxCount == 55)
+    }
+}

@@ -25,6 +25,12 @@ final class AppConfigStore {
         config?.contexts ?? []
     }
 
+    var activeView: TaskView {
+        guard let viewStr = config?.state.activeView,
+              let view = TaskView(rawValue: viewStr) else { return .all }
+        return view
+    }
+
     var activeContextId: String {
         config?.state.activeContextId ?? ""
     }
@@ -56,6 +62,22 @@ final class AppConfigStore {
 
     func setConfig(_ config: AppConfig) {
         self.config = config
+    }
+
+    var settings: AppSettings? {
+        config?.settings
+    }
+
+    var meta: TasksMeta? {
+        nil // meta comes from task responses, not config
+    }
+
+    func setActiveView(_ view: TaskView, repository: TaskRepositoryProtocol) {
+        guard view.rawValue != (config?.state.activeView ?? "all") else { return }
+        config?.state.activeView = view.rawValue
+        Task {
+            try? await repository.patchState(PatchStateRequest(activeView: view.rawValue))
+        }
     }
 
     func setActiveContext(_ contextId: String?, repository: TaskRepositoryProtocol) {

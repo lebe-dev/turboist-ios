@@ -3,6 +3,7 @@ import SwiftUI
 struct TaskListView: View {
     @Bindable var viewModel: TaskListViewModel
     var configStore: AppConfigStore?
+    var onViewChange: ((TaskView) -> Void)?
     @State private var showCreateTask = false
     @State private var showLabelsView = false
     @State private var taskToDelete: TaskItem?
@@ -17,10 +18,13 @@ struct TaskListView: View {
             } else if let error = viewModel.error, viewModel.tasks.isEmpty {
                 ContentUnavailableView("Error", systemImage: "exclamationmark.triangle", description: Text(error))
             } else {
-                taskList
+                VStack(spacing: 0) {
+                    viewSpecificHeader
+                    taskList
+                }
             }
         }
-        .navigationTitle(viewModel.currentView.rawValue.capitalized)
+        .navigationTitle(viewModel.currentView.displayName)
         .toolbar {
             if let configStore, !configStore.contexts.isEmpty {
                 ToolbarItem(placement: .principal) {
@@ -127,6 +131,36 @@ struct TaskListView: View {
         }
         .refreshable {
             await viewModel.loadTasks(view: viewModel.currentView)
+        }
+    }
+
+    @ViewBuilder
+    private var viewSpecificHeader: some View {
+        if let meta = viewModel.meta, let settings = configStore?.settings {
+            switch viewModel.currentView {
+            case .weekly:
+                TaskLimitProgressView(
+                    count: meta.weeklyCount,
+                    limit: meta.weeklyLimit,
+                    label: "Weekly"
+                )
+            case .backlog:
+                TaskLimitProgressView(
+                    count: meta.backlogCount,
+                    limit: meta.backlogLimit,
+                    label: "Backlog"
+                )
+            case .inbox:
+                if let inboxCount = meta.inboxCount {
+                    InboxOverflowBanner(
+                        inboxCount: inboxCount,
+                        inboxLimit: settings.inboxLimit,
+                        warningText: settings.inboxOverflowTaskContent
+                    )
+                }
+            default:
+                EmptyView()
+            }
         }
     }
 

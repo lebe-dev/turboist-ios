@@ -16,23 +16,35 @@ struct ContentView: View {
 
     var body: some View {
         NavigationStack {
-            TaskListView(viewModel: taskListViewModel, configStore: configStore)
-                .navigationDestination(for: TaskItem.self) { task in
-                    TaskDetailView(viewModel: {
-                        let vm = taskDetailViewModel
-                        vm.setTask(task)
-                        return vm
-                    }(), availableLabels: configStore.labels)
+            VStack(spacing: 0) {
+                ViewSwitcherView(
+                    currentView: taskListViewModel.currentView
+                ) { newView in
+                    switchView(newView)
                 }
-                .navigationDestination(for: String.self) { parentId in
-                    TaskDetailView(viewModel: {
-                        let vm = taskDetailViewModel
-                        if let parentTask = taskListViewModel.findTask(by: parentId) {
-                            vm.setTask(parentTask)
-                        }
-                        return vm
-                    }(), availableLabels: configStore.labels)
-                }
+
+                TaskListView(
+                    viewModel: taskListViewModel,
+                    configStore: configStore,
+                    onViewChange: { switchView($0) }
+                )
+            }
+            .navigationDestination(for: TaskItem.self) { task in
+                TaskDetailView(viewModel: {
+                    let vm = taskDetailViewModel
+                    vm.setTask(task)
+                    return vm
+                }(), availableLabels: configStore.labels)
+            }
+            .navigationDestination(for: String.self) { parentId in
+                TaskDetailView(viewModel: {
+                    let vm = taskDetailViewModel
+                    if let parentTask = taskListViewModel.findTask(by: parentId) {
+                        vm.setTask(parentTask)
+                    }
+                    return vm
+                }(), availableLabels: configStore.labels)
+            }
         }
         .task {
             do {
@@ -43,10 +55,21 @@ struct ContentView: View {
                 if !contextId.isEmpty {
                     taskListViewModel.activeContextId = contextId
                 }
+                let initialView = TaskView(rawValue: config.state.activeView) ?? .all
+                taskListViewModel.currentView = initialView
+                await taskListViewModel.loadTasks(view: initialView)
             } catch {
-                // Non-critical, proceed without persisted state
+                await taskListViewModel.loadTasks()
             }
-            await taskListViewModel.loadTasks()
+        }
+    }
+
+    private func switchView(_ newView: TaskView) {
+        guard newView != taskListViewModel.currentView else { return }
+        configStore.setActiveView(newView, repository: taskListViewModel.repository)
+        taskListViewModel.selectedPriorities.removeAll()
+        Task {
+            await taskListViewModel.loadTasks(view: newView)
         }
     }
 }
