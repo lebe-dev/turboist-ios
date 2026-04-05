@@ -11,6 +11,7 @@ protocol TaskRepositoryProtocol {
     func moveTask(id: String, parentId: String) async throws
     func fetchCompletedSubtasks(id: String) async throws -> [TaskItem]
     func batchUpdateLabels(_ updates: [String: [String]]) async throws -> Int
+    func resetWeekly() async throws
     func patchState(_ request: PatchStateRequest) async throws
 }
 
@@ -61,6 +62,10 @@ final class TaskRepository: TaskRepositoryProtocol {
     func batchUpdateLabels(_ updates: [String: [String]]) async throws -> Int {
         let response = try await apiClient.batchUpdateLabels(BatchUpdateLabelsRequest(updates: updates))
         return response.updated
+    }
+
+    func resetWeekly() async throws {
+        let _: OkResponse = try await apiClient.resetWeekly()
     }
 
     func patchState(_ request: PatchStateRequest) async throws {

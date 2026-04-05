@@ -101,6 +101,10 @@ final class APIClient {
         try await get("/api/tasks/\(id)/completed-subtasks")
     }
 
+    func resetWeekly() async throws -> OkResponse {
+        try await post("/api/tasks/reset-weekly")
+    }
+
     // MARK: - State
 
     func patchState(_ request: PatchStateRequest) async throws -> OkResponse {

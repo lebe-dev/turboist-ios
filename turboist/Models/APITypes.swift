@@ -42,6 +42,8 @@ struct PatchStateRequest: Codable {
     var activeContextId: String?
     var activeView: String?
     var dayPartNotes: [String: String]?
+    var planningOpen: Bool?
+    var pinnedTasks: [PinnedTask]?
 }
 
 // MARK: - Response types

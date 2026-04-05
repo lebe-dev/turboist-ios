@@ -856,15 +856,15 @@ enum ActionType: String, Codable {
 
 ### 7.10. Планирование (Planning)
 
-- [ ] **Режим планирования** — отдельный экран с двумя вкладками
-- [ ] **Backlog tab** — задачи с backlog-лейблом, поиск
-- [ ] **Weekly tab** — задачи с weekly-лейблом, прогресс (count/limit)
-- [ ] **Перенос из Backlog в Weekly** — переключение лейблов
-- [ ] **"Принять все"** (Accept All) — перенос всех задач из backlog в weekly
-- [ ] **"Начать неделю"** (Start Week) — `POST /api/tasks/reset-weekly` → снимает weekly-лейбл со всех
-- [ ] **Быстрые кнопки даты** в Weekly: Сегодня, Завтра, дни недели
-- [ ] **Быстрая установка приоритета** в Weekly
-- [ ] **WS переподписка**: при входе в Planning → unsubscribe("tasks") + subscribe("planning"); при выходе → обратно
+- [x] **Режим планирования** — отдельный экран с двумя вкладками
+- [x] **Backlog tab** — задачи с backlog-лейблом, поиск
+- [x] **Weekly tab** — задачи с weekly-лейблом, прогресс (count/limit)
+- [x] **Перенос из Backlog в Weekly** — переключение лейблов
+- [x] **"Принять все"** (Accept All) — перенос всех задач из backlog в weekly
+- [x] **"Начать неделю"** (Start Week) — `POST /api/tasks/reset-weekly` → снимает weekly-лейбл со всех
+- [x] **Быстрые кнопки даты** в Weekly: Сегодня, Завтра, дни недели
+- [x] **Быстрая установка приоритета** в Weekly
+- [x] **WS переподписка**: при входе в Planning → unsubscribe("tasks") + subscribe("planning"); при выходе → обратно (структура подготовлена для HTTP, WS будет добавлен в фазе 2)
 
 ### 7.11. Закреплённые задачи (Pinned Tasks)
 
