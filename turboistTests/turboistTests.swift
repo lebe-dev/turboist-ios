@@ -2026,3 +2026,128 @@ struct PlanningViewModelTests {
         #expect(store.maxPinned == 5)
     }
 }
+
+// MARK: - Search Tests
+
+@Suite("Search Tests")
+struct SearchTests {
+    @Test func searchFiltersTasksByContent() {
+        let repo = MockTaskRepository()
+        let vm = TaskListViewModel(repository: repo)
+        vm.tasks = [
+            makeTask(id: "1", content: "Buy groceries"),
+            makeTask(id: "2", content: "Write report"),
+            makeTask(id: "3", content: "Buy new laptop"),
+        ]
+
+        vm.searchText = "buy"
+
+        #expect(vm.displayTasks.count == 2)
+        #expect(vm.displayTasks.map(\.task.id).contains("1"))
+        #expect(vm.displayTasks.map(\.task.id).contains("3"))
+    }
+
+    @Test func searchIsCaseInsensitive() {
+        let repo = MockTaskRepository()
+        let vm = TaskListViewModel(repository: repo)
+        vm.tasks = [
+            makeTask(id: "1", content: "Buy Groceries"),
+            makeTask(id: "2", content: "Write report"),
+        ]
+
+        vm.searchText = "BUY"
+
+        #expect(vm.displayTasks.count == 1)
+        #expect(vm.displayTasks[0].task.id == "1")
+    }
+
+    @Test func emptySearchShowsAllTasks() {
+        let repo = MockTaskRepository()
+        let vm = TaskListViewModel(repository: repo)
+        vm.tasks = [
+            makeTask(id: "1", content: "Task one"),
+            makeTask(id: "2", content: "Task two"),
+        ]
+
+        vm.searchText = ""
+
+        #expect(vm.displayTasks.count == 2)
+    }
+
+    @Test func searchIncludesParentWhenChildMatches() {
+        let repo = MockTaskRepository()
+        let vm = TaskListViewModel(repository: repo)
+        var parent = makeTask(id: "1", content: "Parent task")
+        parent.children = [makeTask(id: "2", content: "Buy milk")]
+        vm.tasks = [parent]
+
+        vm.searchText = "milk"
+
+        #expect(vm.displayTasks.count == 2)
+        #expect(vm.displayTasks[0].task.id == "1")
+        #expect(vm.displayTasks[1].task.id == "2")
+    }
+
+    @Test func searchCombinesWithPriorityFilter() {
+        let repo = MockTaskRepository()
+        let vm = TaskListViewModel(repository: repo)
+        vm.tasks = [
+            makeTask(id: "1", content: "Buy groceries", priority: 4),
+            makeTask(id: "2", content: "Buy laptop", priority: 1),
+            makeTask(id: "3", content: "Write report", priority: 4),
+        ]
+
+        vm.searchText = "buy"
+        vm.selectedPriorities = [4]
+
+        #expect(vm.displayTasks.count == 1)
+        #expect(vm.displayTasks[0].task.id == "1")
+    }
+
+    @Test func searchNoMatchesReturnsEmpty() {
+        let repo = MockTaskRepository()
+        let vm = TaskListViewModel(repository: repo)
+        vm.tasks = [
+            makeTask(id: "1", content: "Buy groceries"),
+        ]
+
+        vm.searchText = "xyz"
+
+        #expect(vm.displayTasks.isEmpty)
+        #expect(vm.isSearching)
+    }
+
+    @Test func searchableViewOnlyForAllAndBacklog() {
+        let repo = MockTaskRepository()
+        let vm = TaskListViewModel(repository: repo)
+
+        vm.currentView = .all
+        #expect(vm.searchableView)
+
+        vm.currentView = .backlog
+        #expect(vm.searchableView)
+
+        vm.currentView = .inbox
+        #expect(!vm.searchableView)
+
+        vm.currentView = .today
+        #expect(!vm.searchableView)
+
+        vm.currentView = .weekly
+        #expect(!vm.searchableView)
+    }
+
+    @Test func planningSearchFiltersBacklogTasks() {
+        let repo = MockTaskRepository()
+        let vm = PlanningViewModel(repository: repo)
+        vm.backlogTasks = [
+            makeTask(id: "1", content: "Refactor auth"),
+            makeTask(id: "2", content: "Write tests"),
+            makeTask(id: "3", content: "Refactor API"),
+        ]
+
+        vm.searchText = "refactor"
+
+        #expect(vm.filteredBacklogTasks.count == 2)
+    }
+}

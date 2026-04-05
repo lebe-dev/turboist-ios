@@ -11,14 +11,30 @@ final class TaskListViewModel {
     var collapsedIds: Set<String> = []
     var selectedPriorities: Set<Int> = []
     var activeContextId: String?
+    var searchText = ""
+
+    var searchableView: Bool {
+        currentView == .all || currentView == .backlog
+    }
 
     var displayTasks: [DisplayTask] {
-        let filtered = selectedPriorities.isEmpty ? tasks : filterByPriority(tasks, priorities: selectedPriorities)
-        return flattenForDisplay(filtered, collapsedIds: collapsedIds)
+        var result = tasks
+        if !searchText.isEmpty {
+            let query = searchText.lowercased()
+            result = filterBySearch(result, query: query)
+        }
+        if !selectedPriorities.isEmpty {
+            result = filterByPriority(result, priorities: selectedPriorities)
+        }
+        return flattenForDisplay(result, collapsedIds: collapsedIds)
     }
 
     var isFiltering: Bool {
         !selectedPriorities.isEmpty
+    }
+
+    var isSearching: Bool {
+        !searchText.isEmpty
     }
 
     let repository: TaskRepositoryProtocol
@@ -67,6 +83,7 @@ final class TaskListViewModel {
     func switchContext(_ contextId: String?) async {
         activeContextId = contextId
         selectedPriorities.removeAll()
+        searchText = ""
         await loadTasks(view: currentView)
     }
 
@@ -201,6 +218,18 @@ final class TaskListViewModel {
             if let found = findTaskRecursive(id: id, in: task.children) { return found }
         }
         return nil
+    }
+
+    private func filterBySearch(_ tasks: [TaskItem], query: String) -> [TaskItem] {
+        tasks.compactMap { task in
+            let filteredChildren = filterBySearch(task.children, query: query)
+            if task.content.lowercased().contains(query) || !filteredChildren.isEmpty {
+                var filtered = task
+                filtered.children = filteredChildren
+                return filtered
+            }
+            return nil
+        }
     }
 
     private func filterByPriority(_ tasks: [TaskItem], priorities: Set<Int>) -> [TaskItem] {

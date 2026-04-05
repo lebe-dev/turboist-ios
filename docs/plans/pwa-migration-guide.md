@@ -876,8 +876,8 @@ enum ActionType: String, Codable {
 
 ### 7.12. Поиск
 
-- [ ] **Полнотекстовый поиск** по content задач (case-insensitive substring)
-- [ ] Работает в views: All, Backlog, Planning
+- [x] **Полнотекстовый поиск** по content задач (case-insensitive substring)
+- [x] Работает в views: All, Backlog, Planning
 
 ### 7.13. Фильтрация (All Tasks view)
 

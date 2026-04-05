@@ -19,6 +19,9 @@ struct TaskListView: View {
                 ContentUnavailableView("Error", systemImage: "exclamationmark.triangle", description: Text(error))
             } else {
                 VStack(spacing: 0) {
+                    if viewModel.searchableView {
+                        searchBar
+                    }
                     viewSpecificHeader
                     taskList
                 }
@@ -134,6 +137,27 @@ struct TaskListView: View {
         }
     }
 
+    private var searchBar: some View {
+        HStack {
+            Image(systemName: "magnifyingglass")
+                .foregroundStyle(.secondary)
+            TextField("Search tasks...", text: $viewModel.searchText)
+                .textFieldStyle(.plain)
+            if !viewModel.searchText.isEmpty {
+                Button {
+                    viewModel.searchText = ""
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 8)
+        .background(.ultraThinMaterial)
+    }
+
     @ViewBuilder
     private var viewSpecificHeader: some View {
         if let meta = viewModel.meta, let settings = configStore?.settings {
@@ -200,6 +224,15 @@ struct TaskListView: View {
                 ForEach(viewModel.displayTasks) { displayTask in
                     taskRow(displayTask)
                 }
+            }
+        }
+        .overlay {
+            if viewModel.isSearching && viewModel.displayTasks.isEmpty {
+                ContentUnavailableView(
+                    "No matches",
+                    systemImage: "magnifyingglass",
+                    description: Text("Try a different search")
+                )
             }
         }
     }
