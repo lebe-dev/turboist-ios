@@ -16,28 +16,28 @@ final class ConnectionStatusStore {
         connectionState != .online
     }
 
-    private let monitor: NWPathMonitor
+    private var monitor: NWPathMonitor?
     private let monitorQueue = DispatchQueue(label: "connection-monitor")
     private var graceTask: Task<Void, Never>?
     private var isNetworkAvailable = true
 
     static let offlineGracePeriod: TimeInterval = 5.0
 
-    init() {
-        self.monitor = NWPathMonitor()
-    }
-
     func start() {
-        monitor.pathUpdateHandler = { [weak self] path in
+        stop()
+        let newMonitor = NWPathMonitor()
+        newMonitor.pathUpdateHandler = { [weak self] path in
             Task { @MainActor in
                 self?.handlePathUpdate(path)
             }
         }
-        monitor.start(queue: monitorQueue)
+        newMonitor.start(queue: monitorQueue)
+        monitor = newMonitor
     }
 
     func stop() {
-        monitor.cancel()
+        monitor?.cancel()
+        monitor = nil
         graceTask?.cancel()
         graceTask = nil
     }

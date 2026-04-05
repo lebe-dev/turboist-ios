@@ -41,7 +41,7 @@ struct InboxOverflowBanner: View {
     let warningText: String
 
     var body: some View {
-        if inboxCount > inboxLimit {
+        if inboxLimit > 0, inboxCount > inboxLimit {
             HStack {
                 Image(systemName: "exclamationmark.triangle.fill")
                     .foregroundStyle(.orange)

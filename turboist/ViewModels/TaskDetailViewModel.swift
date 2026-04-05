@@ -10,8 +10,9 @@ final class TaskDetailViewModel {
 
     let repository: TaskRepositoryProtocol
 
-    init(repository: TaskRepositoryProtocol) {
+    init(repository: TaskRepositoryProtocol, task: TaskItem? = nil) {
         self.repository = repository
+        self.task = task
     }
 
     func setTask(_ task: TaskItem) {

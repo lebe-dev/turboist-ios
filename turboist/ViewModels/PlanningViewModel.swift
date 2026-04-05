@@ -142,7 +142,7 @@ final class PlanningViewModel {
         backlogTasks.removeAll { movedIds.contains($0.id) }
         weeklyTasks.append(contentsOf: movedTasks)
         meta?.weeklyCount += movedCount
-        meta?.backlogCount = 0
+        meta?.backlogCount = max(0, (meta?.backlogCount ?? 0) - movedCount)
 
         do {
             _ = try await repository.batchUpdateLabels(updates)

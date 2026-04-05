@@ -3,7 +3,6 @@ import SwiftUI
 struct ContentView: View {
     @State private var apiClient: APIClient
     @State private var taskListViewModel: TaskListViewModel
-    @State private var taskDetailViewModel: TaskDetailViewModel
     @State private var planningViewModel: PlanningViewModel
     @State private var configStore = AppConfigStore()
     @State private var connectionStore = ConnectionStatusStore()
@@ -16,7 +15,6 @@ struct ContentView: View {
         let repo = TaskRepository(apiClient: client)
         _apiClient = State(initialValue: client)
         _taskListViewModel = State(initialValue: TaskListViewModel(repository: repo))
-        _taskDetailViewModel = State(initialValue: TaskDetailViewModel(repository: repo))
         _planningViewModel = State(initialValue: PlanningViewModel(repository: repo))
     }
 
@@ -53,20 +51,20 @@ struct ContentView: View {
                 )
             }
             .navigationDestination(for: TaskItem.self) { task in
-                TaskDetailView(viewModel: {
-                    let vm = taskDetailViewModel
-                    vm.setTask(task)
-                    return vm
-                }(), availableLabels: configStore.labels, configStore: configStore)
+                TaskDetailView(
+                    viewModel: TaskDetailViewModel(repository: taskListViewModel.repository, task: task),
+                    availableLabels: configStore.labels,
+                    configStore: configStore
+                )
             }
             .navigationDestination(for: String.self) { parentId in
-                TaskDetailView(viewModel: {
-                    let vm = taskDetailViewModel
-                    if let parentTask = taskListViewModel.findTask(by: parentId) {
-                        vm.setTask(parentTask)
-                    }
-                    return vm
-                }(), availableLabels: configStore.labels, configStore: configStore)
+                if let parentTask = taskListViewModel.findTask(by: parentId) {
+                    TaskDetailView(
+                        viewModel: TaskDetailViewModel(repository: taskListViewModel.repository, task: parentTask),
+                        availableLabels: configStore.labels,
+                        configStore: configStore
+                    )
+                }
             }
         }
         .toolbar {

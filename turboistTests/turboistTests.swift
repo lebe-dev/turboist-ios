@@ -2346,12 +2346,11 @@ struct QuickCaptureTests {
 
     @Test func quickCaptureConfigDecodesParentTaskId() throws {
         let json = """
-        {"title": "Ideas", "parent_task_id": "abc123"}
+        {"parent_task_id": "abc123"}
         """
         let decoder = JSONDecoder()
         decoder.keyDecodingStrategy = .convertFromSnakeCase
         let config = try decoder.decode(QuickCaptureConfig.self, from: json.data(using: .utf8)!)
-        #expect(config.title == "Ideas")
         #expect(config.parentTaskId == "abc123")
     }
 
@@ -2370,7 +2369,7 @@ struct QuickCaptureTests {
             },
             "contexts": [], "projects": [], "labels": [],
             "label_configs": [], "auto_labels": [],
-            "quick_capture": {"title": "Quick Ideas", "parent_task_id": "parent1"},
+            "quick_capture": {"parent_task_id": "parent1"},
             "project_tasks": [], "label_project_map": [],
             "auto_remove": {"rules": [], "paused": false},
             "state": {
@@ -2386,7 +2385,6 @@ struct QuickCaptureTests {
         let config = try decoder.decode(AppConfig.self, from: json.data(using: .utf8)!)
         #expect(config.quickCapture != nil)
         #expect(config.quickCapture?.parentTaskId == "parent1")
-        #expect(config.quickCapture?.title == "Quick Ideas")
     }
 
     @Test func quickCaptureCreatesTaskWithParentId() async {
@@ -2424,7 +2422,7 @@ struct QuickCaptureTests {
         let store = AppConfigStore()
         #expect(store.config?.quickCapture == nil)
 
-        let qc = QuickCaptureConfig(title: "Ideas", parentTaskId: "p1")
+        let qc = QuickCaptureConfig(parentTaskId: "p1")
         let config = AppConfig(
             settings: AppSettings(
                 pollInterval: 30, syncInterval: 5, timezone: "UTC",
