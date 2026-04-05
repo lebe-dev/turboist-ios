@@ -1,6 +1,10 @@
 import Foundation
 
-struct TaskItem: Identifiable, Codable, Equatable, Hashable {
+struct TaskItem: Identifiable, Codable, Hashable {
+    static func == (lhs: TaskItem, rhs: TaskItem) -> Bool {
+        lhs.id == rhs.id
+    }
+
     func hash(into hasher: inout Hasher) {
         hasher.combine(id)
     }

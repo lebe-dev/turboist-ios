@@ -46,18 +46,33 @@ final class TaskDetailViewModel {
             dueDate: dueDate,
             dueString: dueString
         )
+        // Optimistic local update
+        let oldContent = self.task?.content
+        let oldDescription = self.task?.description
+        let oldPriority = self.task?.priority
+        let oldLabels = self.task?.labels
+        let oldDue = self.task?.due
+
+        if let content { self.task?.content = content }
+        if let description { self.task?.description = description }
+        if let priority { self.task?.priority = priority }
+        if let labels { self.task?.labels = labels }
+        if let dueDate { self.task?.due = dueDate.isEmpty ? nil : Due(date: dueDate, recurring: self.task?.due?.recurring ?? false) }
+
         do {
             try await repository.updateTask(id: task.id, request)
-            // Update local state optimistically
-            if let content { self.task?.content = content }
-            if let description { self.task?.description = description }
-            if let priority { self.task?.priority = priority }
-            if let labels { self.task?.labels = labels }
-            if let dueDate { self.task?.due = Due(date: dueDate, recurring: self.task?.due?.recurring ?? false) }
-        } catch let apiError as APIError {
-            error = apiError.errorDescription
         } catch {
-            self.error = error.localizedDescription
+            // Rollback on failure
+            self.task?.content = oldContent ?? ""
+            self.task?.description = oldDescription ?? ""
+            self.task?.priority = oldPriority ?? 1
+            self.task?.labels = oldLabels ?? []
+            self.task?.due = oldDue
+            if let apiError = error as? APIError {
+                self.error = apiError.errorDescription
+            } else {
+                self.error = error.localizedDescription
+            }
         }
         isSaving = false
     }

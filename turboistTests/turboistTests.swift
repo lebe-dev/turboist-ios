@@ -818,6 +818,7 @@ struct DueDateViewModelTests {
         await vm.updateTaskDueDate(task, dueDate: "")
 
         #expect(mock.updateTaskCalled)
+        #expect(mock.lastUpdateRequest?.dueDate == "")
         await #expect(vm.tasks[0].due == nil)
     }
 
@@ -2471,7 +2472,7 @@ struct NextActionTests {
         #expect(vm.nextActionPrompt?.isSubtask == true)
     }
 
-    @Test func completeTaskWithChildrenSetsNextActionUnderSelf() async {
+    @Test func completeTaskWithChildrenDoesNotSetPrompt() async {
         let repo = MockTaskRepository()
         let vm = TaskListViewModel(repository: repo)
         let child = makeTask(id: "child-1", content: "Subtask")
@@ -2480,11 +2481,7 @@ struct NextActionTests {
 
         await vm.completeTask(parent)
 
-        #expect(vm.nextActionPrompt != nil)
-        #expect(vm.nextActionPrompt?.parentId == "parent-1")
-        #expect(vm.nextActionPrompt?.parentContent == "Parent")
-        #expect(vm.nextActionPrompt?.completedTaskLabels == ["feature"])
-        #expect(vm.nextActionPrompt?.isSubtask == true)
+        #expect(vm.nextActionPrompt == nil)
     }
 
     @Test func completeStandaloneTaskDoesNotSetPrompt() async {

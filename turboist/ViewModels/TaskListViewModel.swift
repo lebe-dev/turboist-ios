@@ -107,13 +107,6 @@ final class TaskListViewModel {
                 completedTaskLabels: task.labels,
                 completedTaskContent: task.content
             )
-        } else if task.subTaskCount > 0 || !task.children.isEmpty {
-            nextActionPrompt = NextActionPrompt(
-                parentId: task.id,
-                parentContent: task.content,
-                completedTaskLabels: task.labels,
-                completedTaskContent: task.content
-            )
         } else {
             nextActionPrompt = nil
         }
@@ -178,7 +171,7 @@ final class TaskListViewModel {
     @MainActor
     func updateTaskDueDate(_ task: TaskItem, dueDate: String) async {
         updateTaskDueDateLocally(task.id, dueDate: dueDate, in: &tasks)
-        let request = UpdateTaskRequest(dueDate: dueDate.isEmpty ? nil : dueDate)
+        let request = UpdateTaskRequest(dueDate: dueDate)
         do {
             try await repository.updateTask(id: task.id, request)
         } catch {
