@@ -2451,3 +2451,79 @@ struct QuickCaptureTests {
         #expect(store.config?.quickCapture?.title == "Ideas")
     }
 }
+
+// MARK: - Next Action Tests
+
+struct NextActionTests {
+
+    @Test func completeSubtaskSetsNextActionWithParentId() async {
+        let repo = MockTaskRepository()
+        let vm = TaskListViewModel(repository: repo)
+        let parent = makeTask(id: "parent-1", content: "Parent task")
+        let child = makeTask(id: "child-1", content: "Child task", labels: ["bug", "urgent"], parentId: "parent-1")
+        await MainActor.run { vm.tasks = [TaskItem(id: parent.id, content: parent.content, description: "", projectId: "p1", sectionId: nil, parentId: nil, labels: [], priority: 1, due: nil, subTaskCount: 1, completedSubTaskCount: 0, completedAt: nil, addedAt: "2026-01-01T00:00:00Z", isProjectTask: false, postponeCount: 0, expiresAt: nil, children: [child])] }
+
+        await vm.completeTask(child)
+
+        #expect(vm.nextActionPrompt != nil)
+        #expect(vm.nextActionPrompt?.parentId == "parent-1")
+        #expect(vm.nextActionPrompt?.completedTaskLabels == ["bug", "urgent"])
+        #expect(vm.nextActionPrompt?.isSubtask == true)
+    }
+
+    @Test func completeTaskWithChildrenSetsNextActionUnderSelf() async {
+        let repo = MockTaskRepository()
+        let vm = TaskListViewModel(repository: repo)
+        let child = makeTask(id: "child-1", content: "Subtask")
+        let parent = makeTask(id: "parent-1", content: "Parent", labels: ["feature"], children: [child])
+        await MainActor.run { vm.tasks = [parent] }
+
+        await vm.completeTask(parent)
+
+        #expect(vm.nextActionPrompt != nil)
+        #expect(vm.nextActionPrompt?.parentId == "parent-1")
+        #expect(vm.nextActionPrompt?.parentContent == "Parent")
+        #expect(vm.nextActionPrompt?.completedTaskLabels == ["feature"])
+        #expect(vm.nextActionPrompt?.isSubtask == true)
+    }
+
+    @Test func completeStandaloneTaskSetsFollowUpPrompt() async {
+        let repo = MockTaskRepository()
+        let vm = TaskListViewModel(repository: repo)
+        let task = makeTask(id: "task-1", content: "Standalone", labels: ["review"])
+        await MainActor.run { vm.tasks = [task] }
+
+        await vm.completeTask(task)
+
+        #expect(vm.nextActionPrompt != nil)
+        #expect(vm.nextActionPrompt?.parentId == nil)
+        #expect(vm.nextActionPrompt?.completedTaskContent == "Standalone")
+        #expect(vm.nextActionPrompt?.completedTaskLabels == ["review"])
+        #expect(vm.nextActionPrompt?.isSubtask == false)
+    }
+
+    @Test func dismissNextActionClearsPrompt() async {
+        let repo = MockTaskRepository()
+        let vm = TaskListViewModel(repository: repo)
+        let task = makeTask(id: "task-1", content: "Test")
+        await MainActor.run { vm.tasks = [task] }
+
+        await vm.completeTask(task)
+        #expect(vm.nextActionPrompt != nil)
+
+        vm.dismissNextAction()
+        #expect(vm.nextActionPrompt == nil)
+    }
+
+    @Test func nextActionPromptInheritsLabels() async {
+        let repo = MockTaskRepository()
+        let vm = TaskListViewModel(repository: repo)
+        let labels = ["weekly", "backend", "p1"]
+        let task = makeTask(id: "task-1", content: "Labeled task", labels: labels)
+        await MainActor.run { vm.tasks = [task] }
+
+        await vm.completeTask(task)
+
+        #expect(vm.nextActionPrompt?.completedTaskLabels == labels)
+    }
+}

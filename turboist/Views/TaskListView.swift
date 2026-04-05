@@ -158,6 +158,21 @@ struct TaskListView: View {
                 }
             }
         }
+        .sheet(isPresented: .init(
+            get: { viewModel.nextActionPrompt != nil },
+            set: { if !$0 { viewModel.dismissNextAction() } }
+        )) {
+            if let prompt = viewModel.nextActionPrompt {
+                NextActionView(
+                    prompt: prompt,
+                    repository: viewModel.repository,
+                    availableLabels: configStore?.labels ?? []
+                ) {
+                    Task { await viewModel.loadTasks(view: viewModel.currentView) }
+                }
+                .presentationDetents([.medium])
+            }
+        }
         .refreshable {
             await viewModel.loadTasks(view: viewModel.currentView)
         }

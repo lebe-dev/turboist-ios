@@ -14,6 +14,7 @@ final class TaskListViewModel {
     var linksOnly = false
     var activeContextId: String?
     var searchText = ""
+    var nextActionPrompt: NextActionPrompt?
 
     var searchableView: Bool {
         currentView == .all || currentView == .backlog
@@ -97,12 +98,41 @@ final class TaskListViewModel {
 
     @MainActor
     func completeTask(_ task: TaskItem) async {
+        // Build next action prompt before removing
+        if let parentId = task.parentId {
+            let parentContent = findTask(by: parentId)?.content ?? ""
+            nextActionPrompt = NextActionPrompt(
+                parentId: parentId,
+                parentContent: parentContent,
+                completedTaskLabels: task.labels,
+                completedTaskContent: task.content
+            )
+        } else if task.subTaskCount > 0 || !task.children.isEmpty {
+            nextActionPrompt = NextActionPrompt(
+                parentId: task.id,
+                parentContent: task.content,
+                completedTaskLabels: task.labels,
+                completedTaskContent: task.content
+            )
+        } else {
+            nextActionPrompt = NextActionPrompt(
+                parentId: nil,
+                parentContent: task.content,
+                completedTaskLabels: task.labels,
+                completedTaskContent: task.content
+            )
+        }
+
         tasks.removeAll { $0.id == task.id }
         do {
             try await repository.completeTask(id: task.id)
         } catch {
             await loadTasks(view: currentView)
         }
+    }
+
+    func dismissNextAction() {
+        nextActionPrompt = nil
     }
 
     @MainActor
