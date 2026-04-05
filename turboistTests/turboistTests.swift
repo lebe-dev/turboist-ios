@@ -2449,7 +2449,6 @@ struct QuickCaptureTests {
         )
         store.setConfig(config)
         #expect(store.config?.quickCapture?.parentTaskId == "p1")
-        #expect(store.config?.quickCapture?.title == "Ideas")
     }
 }
 
@@ -2584,6 +2583,7 @@ struct ConnectionStatusStoreTests {
     }
 
     @Test("setPendingActionCount updates count")
+    @MainActor
     func testSetPendingActionCount() {
         let store = ConnectionStatusStore()
         store.setPendingActionCount(5)

@@ -1,14 +1,6 @@
 import Foundation
 
 struct TaskItem: Identifiable, Codable, Hashable {
-    static func == (lhs: TaskItem, rhs: TaskItem) -> Bool {
-        lhs.id == rhs.id
-    }
-
-    func hash(into hasher: inout Hasher) {
-        hasher.combine(id)
-    }
-
     let id: String
     var content: String
     var description: String
@@ -28,7 +20,7 @@ struct TaskItem: Identifiable, Codable, Hashable {
     var children: [TaskItem]
 }
 
-struct Due: Codable, Equatable {
+struct Due: Codable, Hashable {
     let date: String
     let recurring: Bool
 }

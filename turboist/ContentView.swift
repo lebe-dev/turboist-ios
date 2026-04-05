@@ -64,6 +64,12 @@ struct ContentView: View {
                         availableLabels: configStore.labels,
                         configStore: configStore
                     )
+                } else {
+                    ContentUnavailableView(
+                        "Task Not Found",
+                        systemImage: "doc.questionmark",
+                        description: Text("This task may have been deleted or is not loaded")
+                    )
                 }
             }
         }

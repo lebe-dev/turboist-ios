@@ -107,6 +107,13 @@ final class TaskListViewModel {
                 completedTaskLabels: task.labels,
                 completedTaskContent: task.content
             )
+        } else if task.subTaskCount > 0 || !task.children.isEmpty {
+            nextActionPrompt = NextActionPrompt(
+                parentId: task.id,
+                parentContent: task.content,
+                completedTaskLabels: task.labels,
+                completedTaskContent: task.content
+            )
         } else {
             nextActionPrompt = nil
         }
