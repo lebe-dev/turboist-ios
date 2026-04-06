@@ -74,7 +74,8 @@ struct ContentView: View {
                         BrowseView(
                             viewModel: browseViewModel,
                             configStore: configStore,
-                            onOpenTask: { task in navigationPath.append(task) }
+                            onOpenTask: { task in navigationPath.append(task) },
+                            onOpenSettings: { showSettings = true }
                         )
                     } else {
                         TaskListView(

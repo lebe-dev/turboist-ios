@@ -10,7 +10,7 @@ struct ViewSwitcherView: View {
     let onAdd: () -> Void
     let onBrowse: () -> Void
 
-    private static let primaryViews: [TaskView] = [.today, .tomorrow, .weekly, .inbox]
+    private static let primaryViews: [TaskView] = [.today, .tomorrow, .inbox, .weekly]
 
     var body: some View {
         VStack(spacing: DS.Spacing.md) {
@@ -102,9 +102,9 @@ struct ViewSwitcherView: View {
             onBrowse()
         } label: {
             VStack(spacing: 3) {
-                Image(systemName: "magnifyingglass")
+                Image(systemName: "list.bullet.rectangle")
                     .font(.system(size: 15, weight: isBrowseActive ? .semibold : .medium))
-                Text("Брууз")
+                Text("Browse")
                     .font(.system(size: 10, weight: .semibold))
                     .lineLimit(1)
             }

@@ -4,6 +4,7 @@ struct BrowseView: View {
     @Bindable var viewModel: BrowseViewModel
     let configStore: AppConfigStore
     let onOpenTask: (TaskItem) -> Void
+    let onOpenSettings: () -> Void
 
     var body: some View {
         VStack(spacing: 0) {
@@ -16,8 +17,17 @@ struct BrowseView: View {
                 browseContent
             }
         }
-        .navigationTitle("Брууз")
+        .navigationTitle("Browse")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button {
+                    onOpenSettings()
+                } label: {
+                    Image(systemName: "gearshape")
+                }
+            }
+        }
         .task {
             await viewModel.loadAllIfNeeded()
         }
@@ -75,15 +85,27 @@ struct BrowseView: View {
 
     private var browseContent: some View {
         List {
+            inboxSection
             projectsSection
             completedSection
         }
         .listStyle(.insetGrouped)
     }
 
+    private var inboxSection: some View {
+        Section {
+            HStack(spacing: 10) {
+                Image(systemName: "tray")
+                    .foregroundStyle(.secondary)
+                Text("Inbox")
+            }
+            .padding(.vertical, 2)
+        }
+    }
+
     private var projectsSection: some View {
         Section("Проекты") {
-            let projects = configStore.config?.projects ?? []
+            let projects = (configStore.config?.projects ?? []).filter { $0.name != "Inbox" }
             if projects.isEmpty {
                 Text("Нет проектов")
                     .foregroundStyle(.secondary)
