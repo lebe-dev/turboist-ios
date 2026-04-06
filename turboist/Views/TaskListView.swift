@@ -112,7 +112,14 @@ struct TaskListView: View {
             }
         }
         .sheet(isPresented: $showCreateTask) {
-            CreateTaskView(repository: viewModel.repository, parentId: subtaskParentId, availableLabels: configStore?.labels ?? [], configStore: configStore) {
+            CreateTaskView(
+                repository: viewModel.repository,
+                parentId: subtaskParentId,
+                initialLabels: createTaskInitialLabels,
+                initialDueDate: createTaskInitialDueDate,
+                availableLabels: configStore?.labels ?? [],
+                configStore: configStore
+            ) {
                 Task { await viewModel.loadTasks(view: viewModel.currentView) }
             }
         }
@@ -123,7 +130,8 @@ struct TaskListView: View {
             if let phaseLabel = createForPhaseLabel {
                 CreateTaskView(
                     repository: viewModel.repository,
-                    initialLabels: [phaseLabel],
+                    initialLabels: createTaskInitialLabels + [phaseLabel],
+                    initialDueDate: createTaskInitialDueDate,
                     availableLabels: configStore?.labels ?? [],
                     configStore: configStore
                 ) {
@@ -272,6 +280,25 @@ struct TaskListView: View {
                     )
                 }
             }
+        }
+    }
+
+    private var createTaskInitialLabels: [String] {
+        var labels = Array(viewModel.selectedLabels)
+        if viewModel.currentView == .weekly,
+           let weeklyLabel = configStore?.settings?.weeklyLabel,
+           !weeklyLabel.isEmpty,
+           !labels.contains(weeklyLabel) {
+            labels.append(weeklyLabel)
+        }
+        return labels
+    }
+
+    private var createTaskInitialDueDate: String? {
+        switch viewModel.currentView {
+        case .today: return DueDateHelper.todayString()
+        case .tomorrow: return DueDateHelper.tomorrowString()
+        default: return nil
         }
     }
 
