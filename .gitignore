@@ -4,3 +4,14 @@
 !README.md
 !DEV.md
 .DS_Store
+
+# Xcode user-specific files
+xcuserdata/
+*.xcuserstate
+*.xcworkspace/xcuserdata/
+
+# Build artifacts
+DerivedData/
+*.xcarchive
+*.ipa
+.build/
