@@ -101,20 +101,12 @@ struct TaskListView: View {
                     }
                 }
             }
-            ToolbarItem(placement: .primaryAction) {
-                HStack(spacing: 12) {
-                    if let configStore, !configStore.labels.isEmpty {
-                        Button {
-                            showLabelsView = true
-                        } label: {
-                            Image(systemName: "tag")
-                        }
-                    }
+            if let configStore, !configStore.labels.isEmpty {
+                ToolbarItem(placement: .primaryAction) {
                     Button {
-                        subtaskParentId = nil
-                        showCreateTask = true
+                        showLabelsView = true
                     } label: {
-                        Image(systemName: "plus")
+                        Image(systemName: "tag")
                     }
                 }
             }

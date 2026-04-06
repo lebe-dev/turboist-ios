@@ -30,7 +30,7 @@ Turboist iOS — SwiftUI-приложение. Задачи отображают
 
 ## Task 5: Убрать кнопку + из правого верхнего угла TaskListView
 
-- [ ] Удалить кнопку `plus` из `primaryAction` toolbar в `TaskListView.swift`
+- [x] Удалить кнопку `plus` из `primaryAction` toolbar в `TaskListView.swift`
 
 ## Task 6: Иконка Завтра + скрытие системных тегов
 
