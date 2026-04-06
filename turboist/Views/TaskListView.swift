@@ -362,6 +362,12 @@ struct TaskListView: View {
         Set(configStore?.dayParts.map(\.label) ?? [])
     }
 
+    private var systemHiddenLabels: Set<String> {
+        guard let settings = configStore?.settings else { return [] }
+        return Set([settings.weeklyLabel, settings.projectLabel, settings.projectsLabel]
+            .filter { !$0.isEmpty })
+    }
+
     private var dayPartSections: [DayPartSection] {
         guard let configStore else { return [] }
         return groupTasksByDayPart(
@@ -379,7 +385,7 @@ struct TaskListView: View {
                         section: section,
                         collapsedIds: viewModel.collapsedIds,
                         availableLabels: configStore?.labels ?? [],
-                        dayPartLabels: dayPartLabels,
+                        dayPartLabels: dayPartLabels.union(systemHiddenLabels),
                         onComplete: { task in
                             Task { await viewModel.completeTask(task) }
                         },
@@ -426,6 +432,7 @@ struct TaskListView: View {
                 hasChildren: displayTask.hasChildren,
                 isCollapsed: viewModel.collapsedIds.contains(displayTask.task.id),
                 availableLabels: configStore?.labels ?? [],
+                hiddenLabels: systemHiddenLabels,
                 onComplete: {
                     Task { await viewModel.completeTask(displayTask.task) }
                 },

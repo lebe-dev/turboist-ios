@@ -99,7 +99,7 @@ enum TaskView: String, Codable, CaseIterable {
         case .all: return "list.bullet"
         case .inbox: return "tray"
         case .today: return "sun.max"
-        case .tomorrow: return "sun.horizon"
+        case .tomorrow: return "moon.stars"
         case .weekly: return "calendar.badge.clock"
         case .backlog: return "archivebox"
         case .completed: return "checkmark.circle"

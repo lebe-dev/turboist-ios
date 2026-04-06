@@ -34,9 +34,9 @@ Turboist iOS — SwiftUI-приложение. Задачи отображают
 
 ## Task 6: Иконка Завтра + скрытие системных тегов
 
-- [ ] Подобрать более подходящую иконку для Tomorrow в `ViewSwitcherView` и `TaskView.icon`
-- [ ] Скрыть тег `weeklyLabel` из `LabelBadge` в `TaskRowView` (получать из `AppConfigStore`)
-- [ ] Скрыть теги `projectLabel`/`projectsLabel` из `LabelBadge` в `TaskRowView`
+- [x] Подобрать более подходящую иконку для Tomorrow в `ViewSwitcherView` и `TaskView.icon`
+- [x] Скрыть тег `weeklyLabel` из `LabelBadge` в `TaskRowView` (получать из `AppConfigStore`)
+- [x] Скрыть теги `projectLabel`/`projectsLabel` из `LabelBadge` в `TaskRowView`
 
 ## Task 7: Диалог новой задачи — улучшения
 
