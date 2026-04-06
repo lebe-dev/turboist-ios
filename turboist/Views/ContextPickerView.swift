@@ -38,15 +38,16 @@ struct ContextPickerView: View {
                     if let colorHex = activeContext.color, let color = Color(hex: colorHex) {
                         Circle()
                             .fill(color)
-                            .frame(width: 8, height: 8)
+                            .frame(width: 6, height: 6)
                     }
                     Text(activeContext.displayName)
-                        .font(.subheadline)
-                        .fontWeight(.medium)
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                } else {
+                    Image(systemName: "scope")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
                 }
-                Image(systemName: "chevron.down")
-                    .font(.caption2)
-                    .fontWeight(.semibold)
             }
         }
     }

@@ -25,8 +25,8 @@ Turboist iOS — SwiftUI-приложение. Задачи отображают
 
 ## Task 4: Context switcher в левом верхнем углу
 
-- [ ] Убрать `ContextPickerView` из `principal` toolbar в `TaskListView`
-- [ ] Добавить кнопку контекста в левый верхний угол тулбара (`.topBarLeading`) с ненавязчивым отображением текущего контекста
+- [x] Убрать `ContextPickerView` из `principal` toolbar в `TaskListView`
+- [x] Добавить кнопку контекста в левый верхний угол тулбара (`.topBarLeading`) с ненавязчивым отображением текущего контекста
 
 ## Task 5: Убрать кнопку + из правого верхнего угла TaskListView
 

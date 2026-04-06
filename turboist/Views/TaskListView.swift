@@ -39,7 +39,7 @@ struct TaskListView: View {
         .navigationTitle(viewModel.currentView.displayName)
         .toolbar {
             if let configStore, !configStore.contexts.isEmpty {
-                ToolbarItem(placement: .principal) {
+                ToolbarItem(placement: .topBarLeading) {
                     ContextPickerView(
                         contexts: configStore.contexts,
                         activeContextId: viewModel.activeContextId
