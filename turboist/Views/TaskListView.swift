@@ -1,15 +1,23 @@
 import SwiftUI
+#if canImport(UIKit)
+import UIKit
+#endif
 
 struct TaskListView: View {
     @Bindable var viewModel: TaskListViewModel
     var configStore: AppConfigStore?
     var onViewChange: ((TaskView) -> Void)?
+    var onOpenTask: ((TaskItem) -> Void)?
     @State private var showCreateTask = false
     @State private var showLabelsView = false
     @State private var taskToDelete: TaskItem?
     @State private var taskToMove: TaskItem?
     @State private var moveParentId = ""
     @State private var subtaskParentId: String?
+    @State private var menuTask: TaskItem?
+    @State private var datePickerTask: TaskItem?
+    @State private var pickedDate: Date = Date()
+    @State private var decomposeTask: TaskItem?
 
     var body: some View {
         Group {
@@ -173,9 +181,107 @@ struct TaskListView: View {
                 .presentationDetents([.medium])
             }
         }
+        .sheet(item: $datePickerTask) { task in
+            NavigationStack {
+                VStack {
+                    DatePicker(
+                        "Дата",
+                        selection: $pickedDate,
+                        displayedComponents: .date
+                    )
+                    .datePickerStyle(.graphical)
+                    .padding()
+                    Spacer()
+                }
+                .navigationTitle("Выбрать дату")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("Отмена") { datePickerTask = nil }
+                    }
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("Готово") {
+                            let dateStr = DueDateHelper.format(pickedDate)
+                            Task { await viewModel.updateTaskDueDate(task, dueDate: dateStr) }
+                            datePickerTask = nil
+                        }
+                    }
+                }
+            }
+            .presentationDetents([.medium, .large])
+        }
+        .sheet(item: $decomposeTask) { task in
+            DecomposeTaskView(
+                viewModel: TaskDetailViewModel(repository: viewModel.repository, task: task),
+                onDecomposed: {
+                    Task { await viewModel.loadTasks(view: viewModel.currentView) }
+                }
+            )
+        }
         .refreshable {
             await viewModel.loadTasks(view: viewModel.currentView)
         }
+        .overlay {
+            TaskContextMenuOverlay(
+                isPresented: menuTask != nil,
+                onDismiss: { menuTask = nil }
+            ) {
+                if let task = menuTask {
+                    TaskContextMenuView(
+                        task: task,
+                        isInBacklog: isInBacklog(task),
+                        backlogLabel: configStore?.settings?.backlogLabel ?? "",
+                        isPinned: configStore?.isTaskPinned(task.id) ?? false,
+                        canPin: configStore != nil,
+                        onEdit: { onOpenTask?(task) },
+                        onDuplicate: { Task { await viewModel.duplicateTask(task) } },
+                        onCopy: { copyToPasteboard(task.content) },
+                        onToggleBacklog: { toggleBacklog(task) },
+                        onTogglePin: {
+                            configStore?.togglePinTask(task, repository: viewModel.repository)
+                        },
+                        onDecompose: { decomposeTask = task },
+                        onSetDate: { date in
+                            Task { await viewModel.updateTaskDueDate(task, dueDate: date) }
+                        },
+                        onClearDate: {
+                            Task { await viewModel.updateTaskDueDate(task, dueDate: "") }
+                        },
+                        onPickDate: {
+                            pickedDate = DueDateHelper.parse(task.due?.date ?? "") ?? Date()
+                            datePickerTask = task
+                        },
+                        onSetPriority: { priority in
+                            Task { await viewModel.updateTaskPriority(task, priority: priority) }
+                        },
+                        onDelete: { taskToDelete = task },
+                        onDismiss: { menuTask = nil }
+                    )
+                }
+            }
+        }
+    }
+
+    private func isInBacklog(_ task: TaskItem) -> Bool {
+        guard let label = configStore?.settings?.backlogLabel, !label.isEmpty else { return false }
+        return task.labels.contains(label)
+    }
+
+    private func toggleBacklog(_ task: TaskItem) {
+        guard let label = configStore?.settings?.backlogLabel, !label.isEmpty else { return }
+        var newLabels = task.labels
+        if let idx = newLabels.firstIndex(of: label) {
+            newLabels.remove(at: idx)
+        } else {
+            newLabels.append(label)
+        }
+        Task { await viewModel.batchUpdateLabels([task.id: newLabels]) }
+    }
+
+    private func copyToPasteboard(_ text: String) {
+        #if canImport(UIKit)
+        UIPasteboard.general.string = text
+        #endif
     }
 
     private var searchBar: some View {
@@ -267,6 +373,8 @@ struct TaskListView: View {
                 }
             }
         }
+        .listStyle(.plain)
+        .listRowSeparatorTint(DS.Palette.hairline)
         .overlay {
             if viewModel.isSearching && viewModel.displayTasks.isEmpty {
                 ContentUnavailableView(
@@ -279,7 +387,9 @@ struct TaskListView: View {
     }
 
     private func taskRow(_ displayTask: DisplayTask) -> some View {
-        NavigationLink(value: displayTask.task) {
+        Button {
+            onOpenTask?(displayTask.task)
+        } label: {
             TaskRowView(
                 task: displayTask.task,
                 depth: displayTask.depth,
@@ -309,72 +419,12 @@ struct TaskListView: View {
             }
             .tint(.green)
         }
-        .contextMenu {
-            Menu {
-                ForEach(Priority.allCases.reversed()) { priority in
-                    Button {
-                        Task { await viewModel.updateTaskPriority(displayTask.task, priority: priority.rawValue) }
-                    } label: {
-                        Label(priority.label, systemImage: displayTask.task.priority == priority.rawValue ? "checkmark" : "flag.fill")
-                    }
-                }
-            } label: {
-                Label("Priority", systemImage: "flag")
-            }
-
-            Menu {
-                Button {
-                    Task { await viewModel.updateTaskDueDate(displayTask.task, dueDate: DueDateHelper.todayString()) }
-                } label: {
-                    Label("Today", systemImage: "calendar")
-                }
-                Button {
-                    Task { await viewModel.updateTaskDueDate(displayTask.task, dueDate: DueDateHelper.tomorrowString()) }
-                } label: {
-                    Label("Tomorrow", systemImage: "sun.max")
-                }
-                if displayTask.task.due != nil {
-                    Divider()
-                    Button(role: .destructive) {
-                        Task { await viewModel.updateTaskDueDate(displayTask.task, dueDate: "") }
-                    } label: {
-                        Label("Clear Date", systemImage: "calendar.badge.minus")
-                    }
-                }
-            } label: {
-                Label("Due Date", systemImage: "calendar")
-            }
-
-            if let configStore {
-                let isPinned = configStore.isTaskPinned(displayTask.task.id)
-                Button {
-                    configStore.togglePinTask(displayTask.task, repository: viewModel.repository)
-                } label: {
-                    Label(isPinned ? "Unpin" : "Pin", systemImage: isPinned ? "pin.slash" : "pin")
-                }
-            }
-
-            Button {
-                subtaskParentId = displayTask.task.id
-                showCreateTask = true
-            } label: {
-                Label("Add Subtask", systemImage: "plus.square")
-            }
-            Button {
-                Task { await viewModel.duplicateTask(displayTask.task) }
-            } label: {
-                Label("Duplicate", systemImage: "doc.on.doc")
-            }
-            Button {
-                taskToMove = displayTask.task
-            } label: {
-                Label("Move", systemImage: "arrow.right")
-            }
-            Button(role: .destructive) {
-                taskToDelete = displayTask.task
-            } label: {
-                Label("Delete", systemImage: "trash")
-            }
+        .buttonStyle(.plain)
+        .onLongPressGesture(minimumDuration: 0.4) {
+            #if canImport(UIKit)
+            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+            #endif
+            menuTask = displayTask.task
         }
     }
 }

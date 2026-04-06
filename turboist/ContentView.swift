@@ -9,6 +9,7 @@ struct ContentView: View {
     @State private var connectionStore = ConnectionStatusStore()
     @State private var showPlanning = false
     @State private var showQuickCapture = false
+    @State private var showCreateTask = false
     @State private var navigationPath = NavigationPath()
 
     init() {
@@ -54,17 +55,19 @@ struct ContentView: View {
                     }
                 )
 
-                ViewSwitcherView(
-                    currentView: taskListViewModel.currentView
-                ) { newView in
-                    switchView(newView)
-                }
-
                 TaskListView(
                     viewModel: taskListViewModel,
                     configStore: configStore,
-                    onViewChange: { switchView($0) }
+                    onViewChange: { switchView($0) },
+                    onOpenTask: { task in navigationPath.append(task) }
                 )
+                .safeAreaInset(edge: .bottom, spacing: 0) {
+                    ViewSwitcherView(
+                        currentView: taskListViewModel.currentView,
+                        onSelect: { switchView($0) },
+                        onAdd: { showCreateTask = true }
+                    )
+                }
             }
             .navigationDestination(for: TaskItem.self) { task in
                 TaskDetailView(
@@ -90,22 +93,30 @@ struct ContentView: View {
             }
         }
         .toolbar {
-            ToolbarItem(placement: .bottomBar) {
-                HStack {
+            ToolbarItem(placement: .topBarLeading) {
+                HStack(spacing: 14) {
                     Button {
                         openPlanning()
                     } label: {
-                        Label("Planning", systemImage: "list.clipboard")
+                        Image(systemName: "list.clipboard")
                     }
-                    Spacer()
                     if configStore.config?.quickCapture != nil {
                         Button {
                             showQuickCapture = true
                         } label: {
-                            Label("Quick Capture", systemImage: "lightbulb")
+                            Image(systemName: "lightbulb")
                         }
                     }
                 }
+            }
+        }
+        .sheet(isPresented: $showCreateTask) {
+            CreateTaskView(
+                repository: taskListViewModel.repository,
+                availableLabels: configStore.labels,
+                configStore: configStore
+            ) {
+                Task { await taskListViewModel.loadTasks(view: taskListViewModel.currentView) }
             }
         }
         .sheet(isPresented: $showQuickCapture) {

@@ -21,10 +21,10 @@ struct TaskRowView: View {
     }
 
     var body: some View {
-        HStack(spacing: 8) {
+        HStack(alignment: .top, spacing: 12) {
             if depth > 0 {
                 Spacer()
-                    .frame(width: CGFloat(depth) * 20)
+                    .frame(width: CGFloat(depth) * 18)
             }
 
             if hasChildren {
@@ -32,9 +32,9 @@ struct TaskRowView: View {
                     onToggleCollapse?()
                 } label: {
                     Image(systemName: isCollapsed ? "chevron.right" : "chevron.down")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .frame(width: 16, height: 16)
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundStyle(.tertiary)
+                        .frame(width: 16, height: 22)
                 }
                 .buttonStyle(.plain)
             } else if depth > 0 {
@@ -42,25 +42,22 @@ struct TaskRowView: View {
             }
 
             Button(action: onComplete) {
-                Image(systemName: "circle")
-                    .foregroundStyle(priorityColor)
-                    .font(.title3)
+                Circle()
+                    .strokeBorder(priorityColor, lineWidth: 1.6)
+                    .background(
+                        Circle().fill(priorityColor.opacity(task.priority >= 3 ? 0.14 : 0))
+                    )
+                    .frame(width: 20, height: 20)
+                    .padding(.top, 2)
             }
             .buttonStyle(.plain)
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(task.content)
+                    .font(.system(size: 15, weight: .regular))
                     .lineLimit(2)
 
-                if !task.labels.isEmpty {
-                    HStack(spacing: 4) {
-                        ForEach(task.labels, id: \.self) { label in
-                            LabelBadge(name: label, availableLabels: availableLabels)
-                        }
-                    }
-                }
-
-                HStack(spacing: 8) {
+                HStack(spacing: 6) {
                     if let expiresText = ExpiresInHelper.expiresInText(for: task.expiresAt) {
                         HStack(spacing: 2) {
                             Image(systemName: "flame")
@@ -75,8 +72,12 @@ struct TaskRowView: View {
                             Image(systemName: due.recurring ? "arrow.triangle.2.circlepath" : "calendar")
                             Text(DueDateHelper.displayLabel(for: due.date))
                         }
-                        .font(.caption)
+                        .font(.system(size: 11, weight: .medium))
                         .foregroundStyle(DueDateHelper.status(for: due.date).color)
+                    }
+
+                    ForEach(task.labels, id: \.self) { label in
+                        LabelBadge(name: label, availableLabels: availableLabels)
                     }
 
                     if task.postponeCount > 0 {
@@ -98,6 +99,7 @@ struct TaskRowView: View {
 
             Spacer()
         }
+        .padding(.vertical, 6)
         .contentShape(Rectangle())
     }
 
