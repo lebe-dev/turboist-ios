@@ -136,7 +136,8 @@ struct LabelBadge: View {
 
     private var labelColor: Color {
         guard let label = availableLabels.first(where: { $0.name == name }),
-              let color = Color(hex: label.color) else {
+              let hex = label.color,
+              let color = Color(hex: hex) else {
             return .secondary
         }
         return color

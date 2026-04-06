@@ -16,8 +16,31 @@ enum APIError: Error, LocalizedError {
         case .rateLimited: return "Rate limited"
         case .serverError(let code): return "Server error (\(code))"
         case .networkError(let error): return error.localizedDescription
-        case .decodingError(let error): return "Decoding error: \(error.localizedDescription)"
+        case .decodingError(let error): return "Decoding error: \(Self.describe(decodingError: error))"
         case .invalidURL: return "Invalid URL"
+        }
+    }
+
+    private static func describe(decodingError error: Error) -> String {
+        guard let decodingError = error as? DecodingError else {
+            return error.localizedDescription
+        }
+        func path(_ context: DecodingError.Context) -> String {
+            context.codingPath.map { $0.stringValue }.joined(separator: ".")
+        }
+        switch decodingError {
+        case .keyNotFound(let key, let context):
+            let p = path(context)
+            return "missing key '\(key.stringValue)'\(p.isEmpty ? "" : " at \(p)")"
+        case .typeMismatch(let type, let context):
+            return "type mismatch for \(type) at \(path(context)): \(context.debugDescription)"
+        case .valueNotFound(let type, let context):
+            return "value not found for \(type) at \(path(context))"
+        case .dataCorrupted(let context):
+            let p = path(context)
+            return "data corrupted\(p.isEmpty ? "" : " at \(p)"): \(context.debugDescription)"
+        @unknown default:
+            return decodingError.localizedDescription
         }
     }
 }
@@ -43,7 +66,12 @@ final class APIClient {
     // MARK: - Auth
 
     func login(password: String) async throws {
-        let _: OkResponse = try await post("/api/auth/login", body: LoginRequest(password: password))
+        let url = try buildURL("/api/auth/login")
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try encoder.encode(LoginRequest(password: password))
+        try await performVoid(request)
     }
 
     func checkAuth() async throws -> Bool {

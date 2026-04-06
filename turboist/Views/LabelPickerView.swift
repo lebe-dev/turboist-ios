@@ -22,7 +22,7 @@ struct LabelPickerView: View {
                         HStack {
                             Image(systemName: selectedLabels.contains(label.name) ? "checkmark.circle.fill" : "circle")
                                 .foregroundStyle(selectedLabels.contains(label.name) ? .blue : .secondary)
-                            if let color = Color(hex: label.color) {
+                            if let hex = label.color, let color = Color(hex: hex) {
                                 Circle()
                                     .fill(color)
                                     .frame(width: 10, height: 10)

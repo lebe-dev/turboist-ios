@@ -16,7 +16,7 @@ struct LabelsListView: View {
         List {
             ForEach(labelCounts, id: \.label.id) { item in
                 HStack {
-                    if let color = Color(hex: item.label.color) {
+                    if let hex = item.label.color, let color = Color(hex: hex) {
                         Circle()
                             .fill(color)
                             .frame(width: 12, height: 12)

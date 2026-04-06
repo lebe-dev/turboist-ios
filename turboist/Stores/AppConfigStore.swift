@@ -52,8 +52,9 @@ final class AppConfigStore {
     }
 
     func labelColor(_ name: String) -> Color? {
-        guard let label = labels.first(where: { $0.name == name }) else { return nil }
-        return Color(hex: label.color)
+        guard let label = labels.first(where: { $0.name == name }),
+              let hex = label.color else { return nil }
+        return Color(hex: hex)
     }
 
     func shouldInheritToSubtasks(_ labelName: String) -> Bool {

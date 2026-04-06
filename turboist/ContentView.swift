@@ -2,6 +2,7 @@ import SwiftUI
 
 struct ContentView: View {
     @State private var apiClient: APIClient
+    @State private var authStore: AuthStore
     @State private var taskListViewModel: TaskListViewModel
     @State private var planningViewModel: PlanningViewModel
     @State private var configStore = AppConfigStore()
@@ -11,14 +12,29 @@ struct ContentView: View {
     @State private var navigationPath = NavigationPath()
 
     init() {
-        let client = APIClient(baseURL: "http://localhost:8080")
+        let client = APIClient(baseURL: "https://t.tinyops.ru")
         let repo = TaskRepository(apiClient: client)
         _apiClient = State(initialValue: client)
+        _authStore = State(initialValue: AuthStore(apiClient: client))
         _taskListViewModel = State(initialValue: TaskListViewModel(repository: repo))
         _planningViewModel = State(initialValue: PlanningViewModel(repository: repo))
     }
 
     var body: some View {
+        Group {
+            switch authStore.state {
+            case .unknown:
+                ProgressView()
+                    .task { await authStore.checkAuth() }
+            case .unauthenticated:
+                LoginView(authStore: authStore)
+            case .authenticated:
+                mainContent
+            }
+        }
+    }
+
+    private var mainContent: some View {
         NavigationStack(path: $navigationPath) {
             VStack(spacing: 0) {
                 ConnectionStatusView(
@@ -137,8 +153,12 @@ struct ContentView: View {
                 }
                 taskListViewModel.currentView = initialView
                 await taskListViewModel.loadTasks(view: initialView)
+            } catch APIError.unauthorized {
+                authStore.markUnauthenticated()
+            } catch let apiError as APIError {
+                taskListViewModel.error = "Config: \(apiError.errorDescription ?? "unknown")"
             } catch {
-                await taskListViewModel.loadTasks()
+                taskListViewModel.error = "Config: \(error.localizedDescription)"
             }
         }
     }
