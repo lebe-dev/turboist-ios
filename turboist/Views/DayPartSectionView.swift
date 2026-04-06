@@ -8,6 +8,8 @@ struct DayPartSectionView: View {
     let collapsedIds: Set<String>
     let availableLabels: [TaskLabel]
     let dayPartLabels: Set<String>
+    let isActivePhase: Bool
+    let dimTasks: Bool
     var onComplete: (TaskItem) -> Void
     var onToggleCollapse: (String) -> Void
     var onNoteChanged: (String, String) -> Void
@@ -22,6 +24,8 @@ struct DayPartSectionView: View {
         collapsedIds: Set<String>,
         availableLabels: [TaskLabel],
         dayPartLabels: Set<String> = [],
+        isActivePhase: Bool = false,
+        dimTasks: Bool = false,
         onComplete: @escaping (TaskItem) -> Void,
         onToggleCollapse: @escaping (String) -> Void,
         onNoteChanged: @escaping (String, String) -> Void,
@@ -32,6 +36,8 @@ struct DayPartSectionView: View {
         self.collapsedIds = collapsedIds
         self.availableLabels = availableLabels
         self.dayPartLabels = dayPartLabels
+        self.isActivePhase = isActivePhase
+        self.dimTasks = dimTasks
         self.onComplete = onComplete
         self.onToggleCollapse = onToggleCollapse
         self.onNoteChanged = onNoteChanged
@@ -44,6 +50,7 @@ struct DayPartSectionView: View {
         Section {
             if !noteText.isEmpty || isEditingNote {
                 noteField
+                    .listRowBackground(activePhaseRowBackground)
             }
 
             let displayTasks = flattenForDisplay(section.tasks, collapsedIds: collapsedIds)
@@ -60,16 +67,19 @@ struct DayPartSectionView: View {
                         onToggleCollapse: { onToggleCollapse(displayTask.task.id) }
                     )
                 }
+                .opacity(dimTasks ? 0.45 : 1)
                 .onLongPressGesture(minimumDuration: 0.4) {
                     #if canImport(UIKit)
                     UIImpactFeedbackGenerator(style: .medium).impactOccurred()
                     #endif
                     onLongPress?(displayTask.task)
                 }
+                .listRowBackground(activePhaseRowBackground)
             }
         } header: {
             sectionHeader
         }
+        .listSectionSeparator(.hidden, edges: isActivePhase ? .all : [])
         .onChange(of: section.note) { _, newValue in
             if !isEditingNote {
                 noteText = newValue
@@ -80,18 +90,18 @@ struct DayPartSectionView: View {
     private var sectionHeader: some View {
         HStack(spacing: 6) {
             Image(systemName: section.icon)
-                .font(.caption)
+                .font(isActivePhase ? .body : .caption)
             Text(section.label.uppercased())
-                .font(.caption)
+                .font(isActivePhase ? .body : .caption)
                 .fontWeight(.semibold)
             if section.start > 0 || section.end > 0 {
                 Text(section.timeRange)
-                    .font(.caption2)
+                    .font(isActivePhase ? .caption : .caption2)
                     .foregroundStyle(.secondary)
             }
             Spacer()
             Text("\(section.tasks.count)")
-                .font(.caption2)
+                .font(isActivePhase ? .caption : .caption2)
                 .foregroundStyle(.secondary)
             Button {
                 isEditingNote.toggle()
@@ -100,10 +110,18 @@ struct DayPartSectionView: View {
                 }
             } label: {
                 Image(systemName: isEditingNote ? "note.text.badge.plus" : "note.text")
-                    .font(.caption)
+                    .font(isActivePhase ? .body : .caption)
                     .foregroundStyle(.secondary)
             }
             .buttonStyle(.plain)
+        }
+        .padding(.vertical, isActivePhase ? 6 : 0)
+        .padding(.horizontal, isActivePhase ? 4 : 0)
+        .background {
+            if isActivePhase {
+                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    .fill(Color.accentColor.opacity(0.08))
+            }
         }
         .contentShape(Rectangle())
         .onLongPressGesture(minimumDuration: 0.5) {
@@ -111,6 +129,18 @@ struct DayPartSectionView: View {
             UIImpactFeedbackGenerator(style: .light).impactOccurred()
             #endif
             onCreateForPhase?(section.id)
+        }
+    }
+
+    @ViewBuilder
+    private var activePhaseRowBackground: some View {
+        if isActivePhase {
+            HStack(spacing: 0) {
+                Rectangle()
+                    .fill(Color.accentColor.opacity(0.5))
+                    .frame(width: 3)
+                Color.primary.opacity(0.04)
+            }
         }
     }
 

@@ -1,5 +1,10 @@
 import Foundation
 
+func currentDayPartLabel(dayParts: [DayPart]) -> String? {
+    let hour = Calendar.current.component(.hour, from: Date())
+    return dayParts.first { hour >= $0.start && hour < $0.end }?.label
+}
+
 struct DayPartSection: Identifiable {
     let id: String
     let label: String

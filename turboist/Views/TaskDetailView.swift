@@ -46,7 +46,7 @@ struct TaskDetailView: View {
                         }
                     } label: {
                         Image(systemName: "ellipsis")
-                            .foregroundStyle(DS.Palette.accent)
+                            .foregroundStyle(.white)
                     }
                 }
             }
@@ -91,33 +91,46 @@ struct TaskDetailView: View {
 
     @ViewBuilder
     private func taskCanvas(_ task: TaskItem) -> some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 0) {
-                hero(task)
-                labelsRow(task)
-                metaStrip(task)
+        ZStack(alignment: .bottomTrailing) {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 0) {
+                    hero(task)
+                    labelsRow(task)
+                    metaStrip(task)
 
-                descriptionBlock(task)
+                    descriptionBlock(task)
 
-                if let parentId = task.parentId, !parentId.isEmpty {
-                    parentLink(parentId: parentId)
+                    if let parentId = task.parentId, !parentId.isEmpty {
+                        parentLink(parentId: parentId)
+                    }
+
+                    subtasksBlock(task)
+
+                    if let error = viewModel.error {
+                        Text(error)
+                            .font(DS.Typography.caption)
+                            .foregroundStyle(.red)
+                            .padding(.horizontal, DS.Spacing.gutter)
+                            .padding(.top, DS.Spacing.lg)
+                    }
+
+                    Color.clear.frame(height: 80)
                 }
-
-                subtasksBlock(task)
-                actionsBlock(task)
-
-                if let error = viewModel.error {
-                    Text(error)
-                        .font(DS.Typography.caption)
-                        .foregroundStyle(.red)
-                        .padding(.horizontal, DS.Spacing.gutter)
-                        .padding(.top, DS.Spacing.lg)
-                }
-
-                Color.clear.frame(height: DS.Spacing.xxl)
             }
+            .scrollIndicators(.hidden)
+
+            Button { showCreateSubtask = true } label: {
+                Image(systemName: "plus")
+                    .font(.system(size: 20, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .frame(width: 52, height: 52)
+                    .background(DS.Palette.accent)
+                    .clipShape(Circle())
+                    .shadow(color: .black.opacity(0.3), radius: 6, y: 3)
+            }
+            .padding(.trailing, DS.Spacing.gutter)
+            .padding(.bottom, DS.Spacing.lg)
         }
-        .scrollIndicators(.hidden)
         .task(id: task.id) {
             editedContent = task.content
             editedDescription = task.description
@@ -138,7 +151,7 @@ struct TaskDetailView: View {
         HStack(alignment: .top, spacing: DS.Spacing.md) {
             completeButton(task)
             TextField("Title", text: $editedContent, axis: .vertical)
-                .font(.system(size: 20, weight: .semibold, design: .rounded))
+                .font(.system(size: 24, weight: .semibold, design: .rounded))
                 .lineLimit(1...5)
                 .textFieldStyle(.plain)
                 .focused($isTitleFocused)
@@ -154,8 +167,8 @@ struct TaskDetailView: View {
             .background(
                 Circle().fill(priorityColor(task.priority).opacity(task.priority >= 3 ? 0.12 : 0))
             )
-            .frame(width: 26, height: 26)
-            .padding(.top, 4)
+            .frame(width: 28, height: 28)
+            .padding(.top, 3)
     }
 
     // MARK: - Labels row
@@ -266,7 +279,7 @@ struct TaskDetailView: View {
         VStack(alignment: .leading, spacing: DS.Spacing.sm) {
             InlineSectionHeader(title: "Notes")
             TextField("Add notes…", text: $editedDescription, axis: .vertical)
-                .font(DS.Typography.body)
+                .font(.system(size: 14, weight: .regular))
                 .lineLimit(3...12)
                 .textFieldStyle(.plain)
                 .foregroundStyle(DS.Palette.textSecondary)
@@ -320,7 +333,8 @@ struct TaskDetailView: View {
                             }
                             .buttonStyle(.plain)
                             if idx < task.children.count - 1 {
-                                Hairline(inset: 38)
+                                Divider()
+                                    .padding(.leading, 38)
                             }
                         }
                     }
@@ -372,11 +386,11 @@ struct TaskDetailView: View {
         HStack(alignment: .top, spacing: DS.Spacing.md) {
             Circle()
                 .strokeBorder(priorityColor(child.priority), lineWidth: 1.5)
-                .frame(width: 18, height: 18)
+                .frame(width: 16, height: 16)
                 .padding(.top, 2)
             VStack(alignment: .leading, spacing: 2) {
                 MarkdownText(child.content)
-                    .font(DS.Typography.body)
+                    .font(.system(size: 14, weight: .regular))
                     .foregroundStyle(DS.Palette.textPrimary)
                 if child.subTaskCount > 0 {
                     Text("\(child.completedSubTaskCount) / \(child.subTaskCount) subtasks")
@@ -391,36 +405,6 @@ struct TaskDetailView: View {
         }
         .padding(.vertical, DS.Spacing.sm)
         .contentShape(Rectangle())
-    }
-
-    // MARK: - Actions
-
-    @ViewBuilder
-    private func actionsBlock(_ task: TaskItem) -> some View {
-        Hairline(inset: DS.Spacing.gutter)
-        VStack(spacing: 0) {
-            actionRow(title: "Add subtask", icon: "plus.square") { showCreateSubtask = true }
-        }
-        .padding(.top, DS.Spacing.sm)
-    }
-
-    private func actionRow(title: String, icon: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            HStack(spacing: DS.Spacing.md) {
-                Image(systemName: icon)
-                    .font(.system(size: 15, weight: .medium))
-                    .foregroundStyle(DS.Palette.accent)
-                    .frame(width: 22)
-                Text(title)
-                    .font(DS.Typography.body)
-                    .foregroundStyle(DS.Palette.textPrimary)
-                Spacer()
-            }
-            .padding(.horizontal, DS.Spacing.gutter)
-            .padding(.vertical, DS.Spacing.md)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
     }
 
     // MARK: - Helpers

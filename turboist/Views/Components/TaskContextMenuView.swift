@@ -78,7 +78,7 @@ struct TaskContextMenuView: View {
         )
         .overlay(
             RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .strokeBorder(DS.Palette.hairline, lineWidth: 0.5)
+                .strokeBorder(Color.primary.opacity(0.25), lineWidth: 1)
         )
         .shadow(color: Color.black.opacity(0.25), radius: 24, x: 0, y: 12)
     }

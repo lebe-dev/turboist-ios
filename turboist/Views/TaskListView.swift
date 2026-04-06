@@ -6,6 +6,7 @@ import UIKit
 struct TaskListView: View {
     @Bindable var viewModel: TaskListViewModel
     var configStore: AppConfigStore?
+    var isOffline: Bool = false
     var onViewChange: ((TaskView) -> Void)?
     var onOpenTask: ((TaskItem) -> Void)?
     @State private var showCreateTask = false
@@ -40,12 +41,19 @@ struct TaskListView: View {
         .toolbar {
             if let configStore, !configStore.contexts.isEmpty {
                 ToolbarItem(placement: .topBarLeading) {
-                    ContextPickerView(
-                        contexts: configStore.contexts,
-                        activeContextId: viewModel.activeContextId
-                    ) { contextId in
-                        configStore.setActiveContext(contextId, repository: viewModel.repository)
-                        Task { await viewModel.switchContext(contextId) }
+                    HStack(spacing: 8) {
+                        ContextPickerView(
+                            contexts: configStore.contexts,
+                            activeContextId: viewModel.activeContextId
+                        ) { contextId in
+                            configStore.setActiveContext(contextId, repository: viewModel.repository)
+                            Task { await viewModel.switchContext(contextId) }
+                        }
+                        if isOffline {
+                            Circle()
+                                .fill(.red)
+                                .frame(width: 8, height: 8)
+                        }
                     }
                 }
             }
@@ -291,6 +299,12 @@ struct TaskListView: View {
            !labels.contains(weeklyLabel) {
             labels.append(weeklyLabel)
         }
+        if viewModel.currentView == .today,
+           let dayParts = configStore?.dayParts,
+           let phaseLabel = currentDayPartLabel(dayParts: dayParts),
+           !labels.contains(phaseLabel) {
+            labels.append(phaseLabel)
+        }
         return labels
     }
 
@@ -407,12 +421,16 @@ struct TaskListView: View {
     private var taskList: some View {
         List {
             if isDayPartView && configStore != nil {
+                let isToday = viewModel.currentView == .today
+                let activePhase = isToday ? currentDayPartLabel(dayParts: configStore?.dayParts ?? []) : nil
                 ForEach(dayPartSections) { section in
                     DayPartSectionView(
                         section: section,
                         collapsedIds: viewModel.collapsedIds,
                         availableLabels: configStore?.labels ?? [],
                         dayPartLabels: dayPartLabels.union(systemHiddenLabels),
+                        isActivePhase: section.id == activePhase,
+                        dimTasks: activePhase != nil && section.id != activePhase,
                         onComplete: { task in
                             Task { await viewModel.completeTask(task) }
                         },

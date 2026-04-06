@@ -10,8 +10,8 @@ enum DueDateStatus {
     var color: Color {
         switch self {
         case .overdue: return .red
-        case .today: return .orange
-        case .tomorrow: return .blue
+        case .today: return .green
+        case .tomorrow: return .orange
         case .future: return .secondary
         case .none: return .secondary
         }
@@ -63,7 +63,7 @@ enum DueDateHelper {
         let today = calendar.startOfDay(for: Date())
         let taskDate = calendar.startOfDay(for: date)
 
-        if taskDate < today { return "Overdue" }
+        if taskDate < today { return displayFormatter.string(from: date) }
         if calendar.isDateInToday(taskDate) { return "Today" }
         if calendar.isDateInTomorrow(taskDate) { return "Tomorrow" }
 

@@ -81,6 +81,7 @@ struct ContentView: View {
                         TaskListView(
                             viewModel: taskListViewModel,
                             configStore: configStore,
+                            isOffline: connectionStore.connectionState == .offline,
                             onViewChange: { switchView($0) },
                             onOpenTask: { task in navigationPath.append(task) }
                         )

@@ -57,7 +57,7 @@ struct TaskRowView: View {
 
             VStack(alignment: .leading, spacing: 4) {
                 MarkdownText(task.content)
-                    .font(.system(size: 15, weight: .regular))
+                    .font(.system(size: 14, weight: .regular))
                     .lineLimit(2)
 
                 HStack(spacing: 6) {
