@@ -45,8 +45,8 @@ Turboist iOS — SwiftUI-приложение. Задачи отображают
 
 ## Task 8: Markdown-ссылки в заголовках
 
-- [ ] Парсить и рендерить Markdown-ссылки в `content` задач (`[text](url)`) — серый цвет + подчёркивание
-- [ ] Применить рендеринг в `TaskRowView` и `TaskDetailView`
+- [x] Парсить и рендерить Markdown-ссылки в `content` задач (`[text](url)`) — серый цвет + подчёркивание
+- [x] Применить рендеринг в `TaskRowView` и `TaskDetailView`
 
 ## Task 9: Вкладка «Брууз»
 

@@ -56,7 +56,7 @@ struct TaskRowView: View {
             .buttonStyle(.plain)
 
             VStack(alignment: .leading, spacing: 4) {
-                Text(task.content)
+                MarkdownText(task.content)
                     .font(.system(size: 15, weight: .regular))
                     .lineLimit(2)
 

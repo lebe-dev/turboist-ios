@@ -352,7 +352,7 @@ struct TaskDetailView: View {
                                 HStack(spacing: DS.Spacing.md) {
                                     Image(systemName: "checkmark.circle.fill")
                                         .foregroundStyle(.green)
-                                    Text(subtask.content)
+                                    MarkdownText(subtask.content)
                                         .strikethrough()
                                         .foregroundStyle(DS.Palette.textTertiary)
                                         .font(DS.Typography.body)
@@ -375,7 +375,7 @@ struct TaskDetailView: View {
                 .frame(width: 18, height: 18)
                 .padding(.top, 2)
             VStack(alignment: .leading, spacing: 2) {
-                Text(child.content)
+                MarkdownText(child.content)
                     .font(DS.Typography.body)
                     .foregroundStyle(DS.Palette.textPrimary)
                 if child.subTaskCount > 0 {

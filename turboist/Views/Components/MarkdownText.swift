@@ -19,6 +19,14 @@ struct MarkdownText: View {
 
     private func renderMarkdown() -> AttributedString? {
         let source = cleanURLs ? URLCleaner.cleanTrackingParams(in: text) : text
-        return try? AttributedString(markdown: source, options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace))
+        guard var attributed = try? AttributedString(markdown: source, options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace)) else {
+            return nil
+        }
+        for run in attributed.runs {
+            guard run.link != nil else { continue }
+            attributed[run.range].foregroundColor = Color.secondary
+            attributed[run.range].underlineStyle = Text.LineStyle(pattern: .solid)
+        }
+        return attributed
     }
 }
