@@ -15,6 +15,7 @@ struct NextActionView: View {
     @State private var priority: Int = 1
     @State private var selectedLabels: [String] = []
     @State private var isSaving = false
+    @State private var saveError: String?
     @FocusState private var isContentFocused: Bool
 
     let prompt: NextActionPrompt
@@ -32,6 +33,14 @@ struct NextActionView: View {
                 labelsSection
                 Divider()
                 prioritySection
+
+                if let saveError {
+                    Text(saveError)
+                        .font(.caption)
+                        .foregroundStyle(.red)
+                        .padding(.horizontal)
+                }
+
                 Spacer()
             }
             .navigationTitle(prompt.isSubtask ? "Next Action" : "Follow Up")
@@ -148,6 +157,7 @@ struct NextActionView: View {
     private func save() {
         guard isValid, !isSaving else { return }
         isSaving = true
+        saveError = nil
 
         let taskContent = content.trimmingCharacters(in: .whitespacesAndNewlines)
         let labels = selectedLabels
@@ -161,11 +171,18 @@ struct NextActionView: View {
             parentId: parentId
         )
 
-        dismiss()
-
         Task {
-            _ = try? await repository.createTask(request)
-            onCreated?()
+            do {
+                _ = try await repository.createTask(request)
+                dismiss()
+                onCreated?()
+            } catch let apiError as APIError {
+                saveError = apiError.errorDescription
+                isSaving = false
+            } catch {
+                saveError = error.localizedDescription
+                isSaving = false
+            }
         }
     }
 

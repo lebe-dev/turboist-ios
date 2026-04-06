@@ -23,6 +23,8 @@ enum URLCleaner {
         "igshid",
         // YouTube
         "si", "feature",
+        // Generic
+        "ref",
     ]
 
     static func cleanURL(_ raw: String) -> String {

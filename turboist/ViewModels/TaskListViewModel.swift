@@ -26,14 +26,16 @@ final class TaskListViewModel {
             let query = searchText.lowercased()
             result = filterBySearch(result, query: query)
         }
-        if !selectedPriorities.isEmpty {
-            result = filterByPriority(result, priorities: selectedPriorities)
-        }
-        if !selectedLabels.isEmpty {
-            result = filterByLabels(result, labels: selectedLabels)
-        }
-        if linksOnly {
-            result = filterByLinks(result)
+        if currentView == .all {
+            if !selectedPriorities.isEmpty {
+                result = filterByPriority(result, priorities: selectedPriorities)
+            }
+            if !selectedLabels.isEmpty {
+                result = filterByLabels(result, labels: selectedLabels)
+            }
+            if linksOnly {
+                result = filterByLinks(result)
+            }
         }
         return flattenForDisplay(result, collapsedIds: collapsedIds)
     }
@@ -91,7 +93,6 @@ final class TaskListViewModel {
     @MainActor
     func switchContext(_ contextId: String?) async {
         activeContextId = contextId
-        clearAllFilters()
         searchText = ""
         await loadTasks(view: currentView)
     }
@@ -122,6 +123,7 @@ final class TaskListViewModel {
         do {
             try await repository.completeTask(id: task.id)
         } catch {
+            nextActionPrompt = nil
             await loadTasks(view: currentView)
         }
     }

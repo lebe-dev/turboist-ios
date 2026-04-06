@@ -50,7 +50,7 @@ struct TaskDetailView: View {
         .sheet(isPresented: $showCreateSubtask) {
             if let task = viewModel.task {
                 CreateTaskView(repository: viewModel.repository, parentId: task.id, availableLabels: availableLabels) {
-                    // Reload to show new subtask
+                    viewModel.task?.subTaskCount += 1
                 }
             }
         }

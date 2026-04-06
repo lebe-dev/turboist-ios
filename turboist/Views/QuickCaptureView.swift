@@ -6,10 +6,12 @@ struct QuickCaptureView: View {
     @State private var priority: Int = 1
     @State private var dueToday: Bool = false
     @State private var isSaving = false
+    @State private var saveError: String?
     @FocusState private var isContentFocused: Bool
 
     let parentTaskId: String
     let repository: TaskRepositoryProtocol
+    var onCreated: (() -> Void)?
 
     var body: some View {
         NavigationStack {
@@ -68,6 +70,13 @@ struct QuickCaptureView: View {
                 .padding(.horizontal)
                 .padding(.vertical, 10)
 
+                if let saveError {
+                    Text(saveError)
+                        .font(.caption)
+                        .foregroundStyle(.red)
+                        .padding(.horizontal)
+                }
+
                 Spacer()
             }
             .navigationTitle("Quick Capture")
@@ -94,6 +103,7 @@ struct QuickCaptureView: View {
     private func save() {
         guard isValid, !isSaving else { return }
         isSaving = true
+        saveError = nil
 
         let taskContent = content.trimmingCharacters(in: .whitespacesAndNewlines)
         let pri = priority
@@ -106,10 +116,18 @@ struct QuickCaptureView: View {
             dueDate: dueDate
         )
 
-        dismiss()
-
         Task {
-            _ = try? await repository.createTask(request)
+            do {
+                _ = try await repository.createTask(request)
+                onCreated?()
+                dismiss()
+            } catch let apiError as APIError {
+                saveError = apiError.errorDescription
+                isSaving = false
+            } catch {
+                saveError = error.localizedDescription
+                isSaving = false
+            }
         }
     }
 

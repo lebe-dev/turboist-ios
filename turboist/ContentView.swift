@@ -96,7 +96,10 @@ struct ContentView: View {
             if let qc = configStore.config?.quickCapture {
                 QuickCaptureView(
                     parentTaskId: qc.parentTaskId,
-                    repository: taskListViewModel.repository
+                    repository: taskListViewModel.repository,
+                    onCreated: {
+                        Task { await taskListViewModel.loadTasks(view: taskListViewModel.currentView) }
+                    }
                 )
                 .presentationDetents([.medium])
             }
@@ -143,7 +146,6 @@ struct ContentView: View {
     private func switchView(_ newView: TaskView) {
         guard newView != taskListViewModel.currentView else { return }
         configStore.setActiveView(newView, repository: taskListViewModel.repository)
-        taskListViewModel.clearAllFilters()
         Task {
             await taskListViewModel.loadTasks(view: newView)
         }
@@ -167,8 +169,29 @@ struct ContentView: View {
         if let task = taskListViewModel.findTask(by: taskId) {
             navigationPath.append(task)
         } else {
-            navigationPath.append(taskId)
+            Task {
+                if let task = await fetchTaskFromAllView(taskId) {
+                    navigationPath.append(task)
+                } else {
+                    navigationPath.append(taskId)
+                }
+            }
         }
+    }
+
+    private func fetchTaskFromAllView(_ taskId: String) async -> TaskItem? {
+        guard let response = try? await taskListViewModel.repository.fetchTasks(view: .all, context: nil) else {
+            return nil
+        }
+        return findTaskRecursive(id: taskId, in: response.tasks)
+    }
+
+    private func findTaskRecursive(id: String, in tasks: [TaskItem]) -> TaskItem? {
+        for task in tasks {
+            if task.id == id { return task }
+            if let found = findTaskRecursive(id: id, in: task.children) { return found }
+        }
+        return nil
     }
 
     private func onDismissPlanning() {

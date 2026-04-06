@@ -1262,14 +1262,14 @@ struct ContextTests {
         #expect(repo.lastFetchContext == "work")
     }
 
-    @Test func switchContextClearsPriorityFilters() async {
+    @Test func switchContextPreservesFilters() async {
         let repo = MockTaskRepository()
         let vm = TaskListViewModel(repository: repo)
         vm.selectedPriorities = [1, 2]
 
         await vm.switchContext("home")
 
-        #expect(vm.selectedPriorities.isEmpty)
+        #expect(vm.selectedPriorities == [1, 2])
     }
 
     @Test func switchContextToNilClearsContext() async {

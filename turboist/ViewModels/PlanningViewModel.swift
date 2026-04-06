@@ -185,7 +185,7 @@ final class PlanningViewModel {
     @MainActor
     func updateWeeklyTaskDueDate(_ task: TaskItem, dueDate: String) async {
         updateTaskDueDateLocally(task.id, dueDate: dueDate, in: &weeklyTasks)
-        let request = UpdateTaskRequest(dueDate: dueDate.isEmpty ? nil : dueDate)
+        let request = UpdateTaskRequest(dueDate: dueDate)
         do {
             try await repository.updateTask(id: task.id, request)
         } catch {
