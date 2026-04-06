@@ -7,10 +7,12 @@ struct DayPartSectionView: View {
     let section: DayPartSection
     let collapsedIds: Set<String>
     let availableLabels: [TaskLabel]
+    let dayPartLabels: Set<String>
     var onComplete: (TaskItem) -> Void
     var onToggleCollapse: (String) -> Void
     var onNoteChanged: (String, String) -> Void
     var onLongPress: ((TaskItem) -> Void)?
+    var onCreateForPhase: ((String) -> Void)?
 
     @State private var noteText: String
     @State private var isEditingNote = false
@@ -19,18 +21,22 @@ struct DayPartSectionView: View {
         section: DayPartSection,
         collapsedIds: Set<String>,
         availableLabels: [TaskLabel],
+        dayPartLabels: Set<String> = [],
         onComplete: @escaping (TaskItem) -> Void,
         onToggleCollapse: @escaping (String) -> Void,
         onNoteChanged: @escaping (String, String) -> Void,
-        onLongPress: ((TaskItem) -> Void)? = nil
+        onLongPress: ((TaskItem) -> Void)? = nil,
+        onCreateForPhase: ((String) -> Void)? = nil
     ) {
         self.section = section
         self.collapsedIds = collapsedIds
         self.availableLabels = availableLabels
+        self.dayPartLabels = dayPartLabels
         self.onComplete = onComplete
         self.onToggleCollapse = onToggleCollapse
         self.onNoteChanged = onNoteChanged
         self.onLongPress = onLongPress
+        self.onCreateForPhase = onCreateForPhase
         self._noteText = State(initialValue: section.note)
     }
 
@@ -49,6 +55,7 @@ struct DayPartSectionView: View {
                         hasChildren: displayTask.hasChildren,
                         isCollapsed: collapsedIds.contains(displayTask.task.id),
                         availableLabels: availableLabels,
+                        hiddenLabels: dayPartLabels,
                         onComplete: { onComplete(displayTask.task) },
                         onToggleCollapse: { onToggleCollapse(displayTask.task.id) }
                     )
@@ -97,6 +104,13 @@ struct DayPartSectionView: View {
                     .foregroundStyle(.secondary)
             }
             .buttonStyle(.plain)
+        }
+        .contentShape(Rectangle())
+        .onLongPressGesture(minimumDuration: 0.5) {
+            #if canImport(UIKit)
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            #endif
+            onCreateForPhase?(section.id)
         }
     }
 

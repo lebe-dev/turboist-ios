@@ -6,16 +6,19 @@ struct TaskRowView: View {
     let hasChildren: Bool
     let isCollapsed: Bool
     let availableLabels: [TaskLabel]
+    let hiddenLabels: Set<String>
     let onComplete: () -> Void
     let onToggleCollapse: (() -> Void)?
 
     init(task: TaskItem, depth: Int = 0, hasChildren: Bool = false, isCollapsed: Bool = false,
-         availableLabels: [TaskLabel] = [], onComplete: @escaping () -> Void, onToggleCollapse: (() -> Void)? = nil) {
+         availableLabels: [TaskLabel] = [], hiddenLabels: Set<String> = [],
+         onComplete: @escaping () -> Void, onToggleCollapse: (() -> Void)? = nil) {
         self.task = task
         self.depth = depth
         self.hasChildren = hasChildren
         self.isCollapsed = isCollapsed
         self.availableLabels = availableLabels
+        self.hiddenLabels = hiddenLabels
         self.onComplete = onComplete
         self.onToggleCollapse = onToggleCollapse
     }
@@ -76,7 +79,7 @@ struct TaskRowView: View {
                         .foregroundStyle(DueDateHelper.status(for: due.date).color)
                     }
 
-                    ForEach(task.labels, id: \.self) { label in
+                    ForEach(task.labels.filter { !hiddenLabels.contains($0) }, id: \.self) { label in
                         LabelBadge(name: label, availableLabels: availableLabels)
                     }
 

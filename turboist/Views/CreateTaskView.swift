@@ -9,9 +9,10 @@ struct CreateTaskView: View {
     let availableLabels: [TaskLabel]
     let onCreated: () -> Void
 
-    init(repository: TaskRepositoryProtocol, parentId: String? = nil, availableLabels: [TaskLabel] = [], configStore: AppConfigStore? = nil, onCreated: @escaping () -> Void) {
+    init(repository: TaskRepositoryProtocol, parentId: String? = nil, initialLabels: [String] = [], availableLabels: [TaskLabel] = [], configStore: AppConfigStore? = nil, onCreated: @escaping () -> Void) {
         let vm = CreateTaskViewModel(repository: repository)
         vm.parentId = parentId
+        vm.labels = initialLabels
         if let store = configStore {
             vm.configure(
                 compiledAutoLabels: store.compiledAutoLabels,

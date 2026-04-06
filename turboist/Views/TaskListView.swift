@@ -18,6 +18,7 @@ struct TaskListView: View {
     @State private var datePickerTask: TaskItem?
     @State private var pickedDate: Date = Date()
     @State private var decomposeTask: TaskItem?
+    @State private var createForPhaseLabel: String?
 
     var body: some View {
         Group {
@@ -121,6 +122,21 @@ struct TaskListView: View {
         .sheet(isPresented: $showCreateTask) {
             CreateTaskView(repository: viewModel.repository, parentId: subtaskParentId, availableLabels: configStore?.labels ?? [], configStore: configStore) {
                 Task { await viewModel.loadTasks(view: viewModel.currentView) }
+            }
+        }
+        .sheet(isPresented: .init(
+            get: { createForPhaseLabel != nil },
+            set: { if !$0 { createForPhaseLabel = nil } }
+        )) {
+            if let phaseLabel = createForPhaseLabel {
+                CreateTaskView(
+                    repository: viewModel.repository,
+                    initialLabels: [phaseLabel],
+                    availableLabels: configStore?.labels ?? [],
+                    configStore: configStore
+                ) {
+                    Task { await viewModel.loadTasks(view: viewModel.currentView) }
+                }
             }
         }
         .alert("Delete Task?", isPresented: .init(
@@ -233,6 +249,8 @@ struct TaskListView: View {
                         backlogLabel: configStore?.settings?.backlogLabel ?? "",
                         isPinned: configStore?.isTaskPinned(task.id) ?? false,
                         canPin: configStore != nil,
+                        dayParts: configStore?.dayParts ?? [],
+                        currentDayPartLabel: task.labels.first { dayPartLabels.contains($0) },
                         onEdit: { onOpenTask?(task) },
                         onDuplicate: { Task { await viewModel.duplicateTask(task) } },
                         onCopy: { copyToPasteboard(task.content) },
@@ -254,12 +272,21 @@ struct TaskListView: View {
                         onSetPriority: { priority in
                             Task { await viewModel.updateTaskPriority(task, priority: priority) }
                         },
+                        onMoveToPhase: { phaseLabel in
+                            moveTaskToPhase(task, phaseLabel: phaseLabel)
+                        },
                         onDelete: { taskToDelete = task },
                         onDismiss: { menuTask = nil }
                     )
                 }
             }
         }
+    }
+
+    private func moveTaskToPhase(_ task: TaskItem, phaseLabel: String) {
+        var newLabels = task.labels.filter { !dayPartLabels.contains($0) }
+        newLabels.append(phaseLabel)
+        Task { await viewModel.batchUpdateLabels([task.id: newLabels]) }
     }
 
     private func isInBacklog(_ task: TaskItem) -> Bool {
@@ -339,13 +366,17 @@ struct TaskListView: View {
         viewModel.currentView == .today || viewModel.currentView == .tomorrow
     }
 
+    private var dayPartLabels: Set<String> {
+        Set(configStore?.dayParts.map(\.label) ?? [])
+    }
+
     private var dayPartSections: [DayPartSection] {
         guard let configStore else { return [] }
         return groupTasksByDayPart(
             tasks: viewModel.tasks,
             dayParts: configStore.dayParts,
             dayPartNotes: configStore.dayPartNotes
-        )
+        ).filter { !$0.tasks.isEmpty }
     }
 
     private var taskList: some View {
@@ -356,6 +387,7 @@ struct TaskListView: View {
                         section: section,
                         collapsedIds: viewModel.collapsedIds,
                         availableLabels: configStore?.labels ?? [],
+                        dayPartLabels: dayPartLabels,
                         onComplete: { task in
                             Task { await viewModel.completeTask(task) }
                         },
@@ -367,6 +399,9 @@ struct TaskListView: View {
                         },
                         onLongPress: { task in
                             menuTask = task
+                        },
+                        onCreateForPhase: { phaseLabel in
+                            createForPhaseLabel = phaseLabel
                         }
                     )
                 }

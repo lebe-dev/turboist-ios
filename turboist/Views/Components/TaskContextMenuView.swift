@@ -11,6 +11,8 @@ struct TaskContextMenuView: View {
     let backlogLabel: String
     let isPinned: Bool
     let canPin: Bool
+    let dayParts: [DayPart]
+    let currentDayPartLabel: String?
 
     let onEdit: () -> Void
     let onDuplicate: () -> Void
@@ -22,6 +24,7 @@ struct TaskContextMenuView: View {
     let onClearDate: () -> Void
     let onPickDate: () -> Void
     let onSetPriority: (Int) -> Void
+    let onMoveToPhase: ((String) -> Void)?
     let onDelete: () -> Void
     let onDismiss: () -> Void
 
@@ -51,6 +54,10 @@ struct TaskContextMenuView: View {
             Hairline().padding(.vertical, 4)
 
             dateSection
+
+            if !dayParts.isEmpty {
+                phaseSection
+            }
 
             prioritySection
 
@@ -138,6 +145,34 @@ struct TaskContextMenuView: View {
             .padding(.horizontal, 14)
         }
         .padding(.vertical, 6)
+    }
+
+    private var phaseSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Фаза")
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(.secondary)
+                .padding(.horizontal, 14)
+
+            HStack(spacing: 6) {
+                ForEach(Array(dayParts.enumerated()), id: \.offset) { index, dp in
+                    iconButton(
+                        systemName: phaseIcon(at: index, of: dayParts.count),
+                        tint: .blue,
+                        selected: currentDayPartLabel == dp.label,
+                        action: { dismissThen { onMoveToPhase?(dp.label) } }
+                    )
+                }
+            }
+            .padding(.horizontal, 14)
+        }
+        .padding(.vertical, 6)
+    }
+
+    private func phaseIcon(at index: Int, of total: Int) -> String {
+        if index == 0 { return "sunrise" }
+        if index == total - 1 { return "moon" }
+        return "sun.max"
     }
 
     // MARK: - Building blocks
