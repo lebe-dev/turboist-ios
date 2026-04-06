@@ -1,0 +1,94 @@
+import Foundation
+
+@Observable
+final class TaskDetailViewModel {
+    var task: TaskItem?
+    var completedSubtasks: [TaskItem] = []
+    var isLoading = false
+    var isSaving = false
+    var error: String?
+
+    let repository: TaskRepositoryProtocol
+
+    init(repository: TaskRepositoryProtocol, task: TaskItem? = nil) {
+        self.repository = repository
+        self.task = task
+    }
+
+    func setTask(_ task: TaskItem) {
+        self.task = task
+        self.completedSubtasks = []
+        self.error = nil
+    }
+
+    @MainActor
+    func loadCompletedSubtasks() async {
+        guard let task else { return }
+        do {
+            completedSubtasks = try await repository.fetchCompletedSubtasks(id: task.id)
+        } catch let apiError as APIError {
+            error = apiError.errorDescription
+        } catch {
+            self.error = error.localizedDescription
+        }
+    }
+
+    @MainActor
+    func updateTask(content: String? = nil, description: String? = nil, priority: Int? = nil,
+                    labels: [String]? = nil, dueDate: String? = nil, dueString: String? = nil) async {
+        guard let task else { return }
+        isSaving = true
+        let request = UpdateTaskRequest(
+            content: content,
+            description: description,
+            labels: labels,
+            priority: priority,
+            dueDate: dueDate,
+            dueString: dueString
+        )
+        // Optimistic local update
+        let oldContent = self.task?.content
+        let oldDescription = self.task?.description
+        let oldPriority = self.task?.priority
+        let oldLabels = self.task?.labels
+        let oldDue = self.task?.due
+
+        if let content { self.task?.content = content }
+        if let description { self.task?.description = description }
+        if let priority { self.task?.priority = priority }
+        if let labels { self.task?.labels = labels }
+        if let dueDate { self.task?.due = dueDate.isEmpty ? nil : Due(date: dueDate, recurring: self.task?.due?.recurring ?? false) }
+
+        do {
+            try await repository.updateTask(id: task.id, request)
+        } catch {
+            // Rollback on failure
+            self.task?.content = oldContent ?? ""
+            self.task?.description = oldDescription ?? ""
+            self.task?.priority = oldPriority ?? 1
+            self.task?.labels = oldLabels ?? []
+            self.task?.due = oldDue
+            if let apiError = error as? APIError {
+                self.error = apiError.errorDescription
+            } else {
+                self.error = error.localizedDescription
+            }
+        }
+        isSaving = false
+    }
+
+    @MainActor
+    func decomposeTask(subtasks: [String]) async -> Bool {
+        guard let task else { return false }
+        do {
+            try await repository.decomposeTask(id: task.id, subtasks: subtasks)
+            return true
+        } catch let apiError as APIError {
+            error = apiError.errorDescription
+            return false
+        } catch {
+            self.error = error.localizedDescription
+            return false
+        }
+    }
+}
