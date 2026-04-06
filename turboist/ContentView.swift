@@ -8,11 +8,21 @@ struct ContentView: View {
     @State private var browseViewModel: BrowseViewModel
     @State private var configStore = AppConfigStore()
     @State private var connectionStore = ConnectionStatusStore()
+    @AppStorage("appColorScheme") private var colorSchemePreference: String = "system"
     @State private var showPlanning = false
     @State private var showQuickCapture = false
     @State private var showCreateTask = false
     @State private var showBrowse = false
+    @State private var showSettings = false
     @State private var navigationPath = NavigationPath()
+
+    private var preferredColorScheme: ColorScheme? {
+        switch colorSchemePreference {
+        case "light": return .light
+        case "dark": return .dark
+        default: return nil
+        }
+    }
 
     init() {
         let client = APIClient(baseURL: "https://t.tinyops.ru")
@@ -36,6 +46,7 @@ struct ContentView: View {
                 mainContent
             }
         }
+        .preferredColorScheme(preferredColorScheme)
     }
 
     private var mainContent: some View {
@@ -127,6 +138,13 @@ struct ContentView: View {
                     }
                 }
             }
+            ToolbarItem(placement: .topBarTrailing) {
+                Button {
+                    showSettings = true
+                } label: {
+                    Image(systemName: "gearshape")
+                }
+            }
         }
         .sheet(isPresented: $showCreateTask) {
             CreateTaskView(
@@ -148,6 +166,10 @@ struct ContentView: View {
                 )
                 .presentationDetents([.medium])
             }
+        }
+        .sheet(isPresented: $showSettings) {
+            SettingsView()
+                .presentationDetents([.medium])
         }
         .sheet(isPresented: $showPlanning) {
             onDismissPlanning()
