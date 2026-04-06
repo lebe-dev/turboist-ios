@@ -364,6 +364,9 @@ struct TaskListView: View {
                         },
                         onNoteChanged: { label, text in
                             configStore?.setDayPartNote(label, text: text, repository: viewModel.repository)
+                        },
+                        onLongPress: { task in
+                            menuTask = task
                         }
                     )
                 }

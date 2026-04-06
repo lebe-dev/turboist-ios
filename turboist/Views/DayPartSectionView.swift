@@ -1,4 +1,7 @@
 import SwiftUI
+#if canImport(UIKit)
+import UIKit
+#endif
 
 struct DayPartSectionView: View {
     let section: DayPartSection
@@ -7,6 +10,7 @@ struct DayPartSectionView: View {
     var onComplete: (TaskItem) -> Void
     var onToggleCollapse: (String) -> Void
     var onNoteChanged: (String, String) -> Void
+    var onLongPress: ((TaskItem) -> Void)?
 
     @State private var noteText: String
     @State private var isEditingNote = false
@@ -17,7 +21,8 @@ struct DayPartSectionView: View {
         availableLabels: [TaskLabel],
         onComplete: @escaping (TaskItem) -> Void,
         onToggleCollapse: @escaping (String) -> Void,
-        onNoteChanged: @escaping (String, String) -> Void
+        onNoteChanged: @escaping (String, String) -> Void,
+        onLongPress: ((TaskItem) -> Void)? = nil
     ) {
         self.section = section
         self.collapsedIds = collapsedIds
@@ -25,6 +30,7 @@ struct DayPartSectionView: View {
         self.onComplete = onComplete
         self.onToggleCollapse = onToggleCollapse
         self.onNoteChanged = onNoteChanged
+        self.onLongPress = onLongPress
         self._noteText = State(initialValue: section.note)
     }
 
@@ -46,6 +52,12 @@ struct DayPartSectionView: View {
                         onComplete: { onComplete(displayTask.task) },
                         onToggleCollapse: { onToggleCollapse(displayTask.task.id) }
                     )
+                }
+                .onLongPressGesture(minimumDuration: 0.4) {
+                    #if canImport(UIKit)
+                    UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                    #endif
+                    onLongPress?(displayTask.task)
                 }
             }
         } header: {

@@ -89,7 +89,7 @@ struct TaskDetailView: View {
                     descriptionBlock(task)
                 }
 
-                if let parentId = task.parentId {
+                if let parentId = task.parentId, !parentId.isEmpty {
                     parentLink(parentId: parentId)
                 }
 
