@@ -5,11 +5,13 @@ struct ContentView: View {
     @State private var authStore: AuthStore
     @State private var taskListViewModel: TaskListViewModel
     @State private var planningViewModel: PlanningViewModel
+    @State private var browseViewModel: BrowseViewModel
     @State private var configStore = AppConfigStore()
     @State private var connectionStore = ConnectionStatusStore()
     @State private var showPlanning = false
     @State private var showQuickCapture = false
     @State private var showCreateTask = false
+    @State private var showBrowse = false
     @State private var navigationPath = NavigationPath()
 
     init() {
@@ -19,6 +21,7 @@ struct ContentView: View {
         _authStore = State(initialValue: AuthStore(apiClient: client))
         _taskListViewModel = State(initialValue: TaskListViewModel(repository: repo))
         _planningViewModel = State(initialValue: PlanningViewModel(repository: repo))
+        _browseViewModel = State(initialValue: BrowseViewModel(repository: repo))
     }
 
     var body: some View {
@@ -55,17 +58,32 @@ struct ContentView: View {
                     }
                 )
 
-                TaskListView(
-                    viewModel: taskListViewModel,
-                    configStore: configStore,
-                    onViewChange: { switchView($0) },
-                    onOpenTask: { task in navigationPath.append(task) }
-                )
+                Group {
+                    if showBrowse {
+                        BrowseView(
+                            viewModel: browseViewModel,
+                            configStore: configStore,
+                            onOpenTask: { task in navigationPath.append(task) }
+                        )
+                    } else {
+                        TaskListView(
+                            viewModel: taskListViewModel,
+                            configStore: configStore,
+                            onViewChange: { switchView($0) },
+                            onOpenTask: { task in navigationPath.append(task) }
+                        )
+                    }
+                }
                 .safeAreaInset(edge: .bottom, spacing: 0) {
                     ViewSwitcherView(
                         currentView: taskListViewModel.currentView,
-                        onSelect: { switchView($0) },
-                        onAdd: { showCreateTask = true }
+                        isBrowseActive: showBrowse,
+                        onSelect: {
+                            showBrowse = false
+                            switchView($0)
+                        },
+                        onAdd: { showCreateTask = true },
+                        onBrowse: { showBrowse = true }
                     )
                 }
             }

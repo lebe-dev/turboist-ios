@@ -5,8 +5,10 @@ import SwiftUI
 /// rounded capsule that hovers above the task list.
 struct ViewSwitcherView: View {
     let currentView: TaskView
+    let isBrowseActive: Bool
     let onSelect: (TaskView) -> Void
     let onAdd: () -> Void
+    let onBrowse: () -> Void
 
     private static let primaryViews: [TaskView] = [.today, .tomorrow, .weekly, .inbox]
 
@@ -24,6 +26,7 @@ struct ViewSwitcherView: View {
                 ForEach(Self.primaryViews, id: \.self) { view in
                     tabButton(view)
                 }
+                browseTabButton
             }
             .padding(4)
             .background(
@@ -87,6 +90,34 @@ struct ViewSwitcherView: View {
             )
             .contentShape(Capsule())
             .animation(.spring(response: 0.32, dampingFraction: 0.78), value: isActive)
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var browseTabButton: some View {
+        Button {
+            #if canImport(UIKit)
+            UIImpactFeedbackGenerator(style: .soft).impactOccurred()
+            #endif
+            onBrowse()
+        } label: {
+            VStack(spacing: 3) {
+                Image(systemName: "magnifyingglass")
+                    .font(.system(size: 15, weight: isBrowseActive ? .semibold : .medium))
+                Text("Брууз")
+                    .font(.system(size: 10, weight: .semibold))
+                    .lineLimit(1)
+            }
+            .foregroundStyle(isBrowseActive ? DS.Palette.textPrimary : DS.Palette.textSecondary)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 6)
+            .padding(.horizontal, 4)
+            .background(
+                Capsule(style: .continuous)
+                    .fill(isBrowseActive ? Color.primary.opacity(0.10) : Color.clear)
+            )
+            .contentShape(Capsule())
+            .animation(.spring(response: 0.32, dampingFraction: 0.78), value: isBrowseActive)
         }
         .buttonStyle(.plain)
     }
