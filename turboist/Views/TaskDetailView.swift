@@ -5,7 +5,8 @@ struct TaskDetailView: View {
     @State private var editedContent: String = ""
     @State private var editedDescription: String = ""
     @State private var editedPriority: Int = 1
-    @State private var isEditing = false
+    @FocusState private var isTitleFocused: Bool
+    @FocusState private var isNotesFocused: Bool
     @State private var showDecompose = false
     @State private var showCompletedSubtasks = false
     @State private var showCreateSubtask = false
@@ -29,14 +30,24 @@ struct TaskDetailView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .principal) { Color.clear.frame(width: 1, height: 1) }
-            if viewModel.task != nil {
+            if let task = viewModel.task {
                 ToolbarItem(placement: .primaryAction) {
-                    Button(isEditing ? "Save" : "Edit") {
-                        if isEditing { saveChanges() } else { startEditing() }
+                    Menu {
+                        if let configStore {
+                            let isPinned = configStore.isTaskPinned(task.id)
+                            Button {
+                                configStore.togglePinTask(task, repository: viewModel.repository)
+                            } label: {
+                                Label(isPinned ? "Unpin task" : "Pin task", systemImage: isPinned ? "pin.slash" : "pin")
+                            }
+                        }
+                        Button { showDecompose = true } label: {
+                            Label("Decompose", systemImage: "rectangle.split.3x1")
+                        }
+                    } label: {
+                        Image(systemName: "ellipsis")
+                            .foregroundStyle(DS.Palette.accent)
                     }
-                    .font(DS.Typography.bodyEmph)
-                    .foregroundStyle(DS.Palette.accent)
-                    .disabled(viewModel.isSaving)
                 }
             }
         }
@@ -83,11 +94,10 @@ struct TaskDetailView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
                 hero(task)
+                labelsRow(task)
                 metaStrip(task)
 
-                if isEditing || !task.description.isEmpty {
-                    descriptionBlock(task)
-                }
+                descriptionBlock(task)
 
                 if let parentId = task.parentId, !parentId.isEmpty {
                     parentLink(parentId: parentId)
@@ -108,31 +118,34 @@ struct TaskDetailView: View {
             }
         }
         .scrollIndicators(.hidden)
+        .task(id: task.id) {
+            editedContent = task.content
+            editedDescription = task.description
+            editedPriority = task.priority
+        }
+        .onChange(of: isTitleFocused) { _, focused in
+            if !focused { saveTitle() }
+        }
+        .onChange(of: isNotesFocused) { _, focused in
+            if !focused { saveNotes() }
+        }
     }
 
     // MARK: - Hero
 
     @ViewBuilder
     private func hero(_ task: TaskItem) -> some View {
-        VStack(alignment: .leading, spacing: DS.Spacing.md) {
-            HStack(alignment: .top, spacing: DS.Spacing.md) {
-                completeButton(task)
-                if isEditing {
-                    TextField("Title", text: $editedContent, axis: .vertical)
-                        .font(DS.Typography.hero)
-                        .lineLimit(1...4)
-                        .textFieldStyle(.plain)
-                } else {
-                    Text(task.content)
-                        .font(DS.Typography.hero)
-                        .foregroundStyle(DS.Palette.textPrimary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-            }
+        HStack(alignment: .top, spacing: DS.Spacing.md) {
+            completeButton(task)
+            TextField("Title", text: $editedContent, axis: .vertical)
+                .font(.system(size: 20, weight: .semibold, design: .rounded))
+                .lineLimit(1...5)
+                .textFieldStyle(.plain)
+                .focused($isTitleFocused)
         }
         .padding(.horizontal, DS.Spacing.gutter)
         .padding(.top, DS.Spacing.lg)
-        .padding(.bottom, DS.Spacing.md)
+        .padding(.bottom, DS.Spacing.sm)
     }
 
     private func completeButton(_ task: TaskItem) -> some View {
@@ -142,7 +155,48 @@ struct TaskDetailView: View {
                 Circle().fill(priorityColor(task.priority).opacity(task.priority >= 3 ? 0.12 : 0))
             )
             .frame(width: 26, height: 26)
-            .padding(.top, 8)
+            .padding(.top, 4)
+    }
+
+    // MARK: - Labels row
+
+    @ViewBuilder
+    private func labelsRow(_ task: TaskItem) -> some View {
+        if !task.labels.isEmpty {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: DS.Spacing.sm) {
+                    ForEach(task.labels, id: \.self) { name in
+                        let color = labelColor(name)
+                        Chip(name, icon: "number", tint: color, filled: true)
+                    }
+                    Button {
+                        editedLabels = task.labels
+                        showLabelPicker = true
+                    } label: {
+                        Chip("Edit", icon: "tag")
+                    }
+                    .buttonStyle(.plain)
+                }
+                .padding(.horizontal, DS.Spacing.gutter)
+            }
+            .padding(.bottom, DS.Spacing.sm)
+        } else {
+            Button {
+                editedLabels = task.labels
+                showLabelPicker = true
+            } label: {
+                HStack(spacing: DS.Spacing.xs) {
+                    Image(systemName: "tag")
+                        .font(.system(size: 13))
+                    Text("Add labels")
+                        .font(DS.Typography.caption)
+                }
+                .foregroundStyle(DS.Palette.textTertiary)
+                .padding(.horizontal, DS.Spacing.gutter)
+                .padding(.bottom, DS.Spacing.sm)
+            }
+            .buttonStyle(.plain)
+        }
     }
 
     // MARK: - Meta strip
@@ -187,19 +241,6 @@ struct TaskDetailView: View {
                 }
                 .buttonStyle(.plain)
 
-                // Labels
-                ForEach(task.labels, id: \.self) { name in
-                    let color = labelColor(name)
-                    Chip(name, icon: "number", tint: color, filled: true)
-                }
-                Button {
-                    editedLabels = task.labels
-                    showLabelPicker = true
-                } label: {
-                    Chip(task.labels.isEmpty ? "Labels" : "Edit", icon: "tag")
-                }
-                .buttonStyle(.plain)
-
                 if task.postponeCount > 0 {
                     Chip(
                         "\(task.postponeCount)×",
@@ -224,16 +265,12 @@ struct TaskDetailView: View {
         Hairline(inset: DS.Spacing.gutter)
         VStack(alignment: .leading, spacing: DS.Spacing.sm) {
             InlineSectionHeader(title: "Notes")
-            if isEditing {
-                TextField("Add notes…", text: $editedDescription, axis: .vertical)
-                    .font(DS.Typography.body)
-                    .lineLimit(3...12)
-                    .textFieldStyle(.plain)
-            } else {
-                MarkdownText(task.description)
-                    .font(DS.Typography.body)
-                    .foregroundStyle(DS.Palette.textSecondary)
-            }
+            TextField("Add notes…", text: $editedDescription, axis: .vertical)
+                .font(DS.Typography.body)
+                .lineLimit(3...12)
+                .textFieldStyle(.plain)
+                .foregroundStyle(DS.Palette.textSecondary)
+                .focused($isNotesFocused)
         }
         .padding(.horizontal, DS.Spacing.gutter)
         .padding(.vertical, DS.Spacing.lg)
@@ -362,19 +399,7 @@ struct TaskDetailView: View {
     private func actionsBlock(_ task: TaskItem) -> some View {
         Hairline(inset: DS.Spacing.gutter)
         VStack(spacing: 0) {
-            if let configStore {
-                let isPinned = configStore.isTaskPinned(task.id)
-                actionRow(
-                    title: isPinned ? "Unpin task" : "Pin task",
-                    icon: isPinned ? "pin.slash" : "pin"
-                ) {
-                    configStore.togglePinTask(task, repository: viewModel.repository)
-                }
-                Hairline(inset: 52)
-            }
             actionRow(title: "Add subtask", icon: "plus.square") { showCreateSubtask = true }
-            Hairline(inset: 52)
-            actionRow(title: "Decompose", icon: "rectangle.split.3x1") { showDecompose = true }
         }
         .padding(.top, DS.Spacing.sm)
     }
@@ -400,24 +425,17 @@ struct TaskDetailView: View {
 
     // MARK: - Helpers
 
-    private func startEditing() {
-        guard let task = viewModel.task else { return }
-        editedContent = task.content
-        editedDescription = task.description
-        editedPriority = task.priority
-        isEditing = true
+    private func saveTitle() {
+        guard let task = viewModel.task,
+              !editedContent.isEmpty,
+              editedContent != task.content else { return }
+        Task { await viewModel.updateTask(content: editedContent) }
     }
 
-    private func saveChanges() {
-        guard let task = viewModel.task else { return }
-        isEditing = false
-        Task {
-            await viewModel.updateTask(
-                content: editedContent != task.content ? editedContent : nil,
-                description: editedDescription != task.description ? editedDescription : nil,
-                priority: editedPriority != task.priority ? editedPriority : nil
-            )
-        }
+    private func saveNotes() {
+        guard let task = viewModel.task,
+              editedDescription != task.description else { return }
+        Task { await viewModel.updateTask(description: editedDescription) }
     }
 
     private func cyclePriority(_ task: TaskItem) {
